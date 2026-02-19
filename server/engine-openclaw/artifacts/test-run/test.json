@@ -1,0 +1,17 @@
+{
+  "requested_type": "docx",
+  "warning": "python-docx unavailable",
+  "payload": {
+    "title": "????",
+    "summary": "hello",
+    "sections": [
+      {
+        "h": "??",
+        "bullets": [
+          "a",
+          "b"
+        ]
+      }
+    ]
+  }
+}

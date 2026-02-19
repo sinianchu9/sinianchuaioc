@@ -1,0 +1,209 @@
+﻿tools:
+  - id: openclaw.fs
+    name: OpenClaw File Store
+    category: Runtime
+    description: Local/source file read-write and project artifacts store.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.runtime
+    name: OpenClaw Runtime
+    category: Runtime
+    description: Core runtime execution and workflow orchestration.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.web_fetch
+    name: Web Fetch
+    category: Search
+    description: Web retrieval and content extraction.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations:
+        - search.brave
+
+  - id: openclaw.ui.browser
+    name: Browser Automation
+    category: Runtime
+    description: Browser-based automation and capture powered by Playwright.
+    default_enabled: true
+    risk_level: high
+    dependencies:
+      binaries:
+        - playwright
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: aioc.artifact_render
+    name: Artifact Renderer
+    category: Artifacts
+    description: Generate report/doc/table artifacts.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations:
+        - llm.openai
+      any_of_integrations: []
+
+  - id: aioc.task.create
+    name: Task Creator
+    category: Action
+    description: Create downstream tasks in external task systems.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations:
+        - task.api
+      any_of_integrations: []
+
+  - id: ocr_extract
+    name: OCR Extractor
+    category: Multimodal
+    description: Extract structured text from image sources.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations:
+        - ocr.api
+      any_of_integrations: []
+
+  - id: asr_transcribe
+    name: ASR Transcriber
+    category: Multimodal
+    description: Transcribe audio sources into text.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations:
+        - asr.api
+      any_of_integrations: []
+
+  - id: tts_synthesize
+    name: TTS Synthesizer
+    category: Multimodal
+    description: Synthesize text into audio output.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations:
+        - tts.api
+      any_of_integrations: []
+
+integrations:
+  - id: llm.openai
+    type: llm
+    display_name: OpenAI
+    category: LLM
+    description: LLM provider integration.
+    required_fields:
+      - OPENAI_API_KEY
+    optional_fields: []
+    check_type: llm_openai
+    default_enabled: true
+    mandatory: true
+
+  - id: search.brave
+    type: search
+    display_name: Brave Search
+    category: Search
+    description: Web search connector.
+    required_fields:
+      - BRAVE_API_KEY
+    optional_fields: []
+    check_type: web_search_brave
+    default_enabled: true
+    mandatory: false
+
+  - id: task.api
+    type: action
+    display_name: Task API
+    category: Action
+    description: Task management API connector.
+    required_fields:
+      - TASK_API_BASE_URL
+      - TASK_API_TOKEN
+    optional_fields: []
+    check_type: task_api
+    default_enabled: true
+    mandatory: false
+
+  - id: ocr.api
+    type: multimodal
+    display_name: OCR API
+    category: Multimodal
+    description: OCR service endpoint and token configuration.
+    required_fields:
+      - OCR_API_BASE_URL
+      - OCR_API_TOKEN
+    optional_fields:
+      - OCR_MODEL
+    check_type: ocr_api
+    default_enabled: true
+    mandatory: false
+
+  - id: asr.api
+    type: multimodal
+    display_name: ASR API
+    category: Multimodal
+    description: Speech-to-text service endpoint and token configuration.
+    required_fields:
+      - ASR_API_BASE_URL
+      - ASR_API_TOKEN
+    optional_fields:
+      - ASR_MODEL
+    check_type: asr_api
+    default_enabled: true
+    mandatory: false
+
+  - id: tts.api
+    type: multimodal
+    display_name: TTS API
+    category: Multimodal
+    description: Text-to-speech service endpoint and token configuration.
+    required_fields:
+      - TTS_API_BASE_URL
+      - TTS_API_TOKEN
+    optional_fields:
+      - TTS_VOICE
+    check_type: tts_api
+    default_enabled: true
+    mandatory: false
+
+dependency_map:
+  openclaw.web_fetch:
+    any_of_integrations:
+      - search.brave
+  aioc.artifact_render:
+    all_of_integrations:
+      - llm.openai
+  aioc.task.create:
+    all_of_integrations:
+      - task.api
+  ocr_extract:
+    all_of_integrations:
+      - ocr.api
+  asr_transcribe:
+    all_of_integrations:
+      - asr.api
+  tts_synthesize:
+    all_of_integrations:
+      - tts.api
+  openclaw.ui.browser:
+    binaries:
+      - playwright

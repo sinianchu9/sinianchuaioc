@@ -1,0 +1,45 @@
+# OS & IDE
+.DS_Store
+.vscode/
+.idea/
+*.iml
+
+# Node / JS
+node_modules/
+dist/
+dist-ssr/
+*.local
+package-lock.json # OpenClaw 官方建议忽略
+
+# Go
+/server/gateway-go/gateway-go # 编译后的二进制
+/server/core-go/core-go
+
+# Flutter
+.dart_tool/
+.flutter-plugins*
+build/
+/aioc/client/flutter_app/build/
+
+# Logs & Temp Files (AIOC specifically)
+*.log
+core_logs.txt
+err.txt
+analyze_output*.txt
+core_build_err*.txt
+hash_output.txt
+full_hash.txt
+pwd.txt
+start server.txt
+
+# Secrets & Configs
+.env
+*.key
+.secrets.baseline
+config.json # 如果包含个人 Token
+
+# Business Data (Generated Content)
+/aioc/server/engine-openclaw/artifacts/
+memory/
+.agent/*.json
+!.agent/workflows/

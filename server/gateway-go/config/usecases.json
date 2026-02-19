@@ -1,0 +1,401 @@
+﻿{
+  "roles": [
+    {
+      "role_id": "student",
+      "title": "学生",
+      "description": "知识点总结、题目解析、错题整理、知识库问答",
+      "tasks": [
+        {
+          "task_id": "student.knowledge_summary",
+          "title": "知识点总结",
+          "description": "把资料归纳为可复习结构",
+          "default_skills": ["student_knowledge_summary"],
+          "mode": "economy",
+          "category": "student",
+          "min_plan": "free"
+        },
+        {
+          "task_id": "student.kb_qa",
+          "title": "知识库内提问",
+          "description": "基于项目源进行问答",
+          "default_skills": ["student_kb_qa"],
+          "mode": "economy",
+          "category": "student",
+          "min_plan": "free"
+        },
+        {
+          "task_id": "student.mistake_book",
+          "title": "错题本整理",
+          "description": "分类归因并输出复习建议",
+          "default_skills": ["student_mistake_book"],
+          "mode": "precision",
+          "category": "student",
+          "min_plan": "pro"
+        },
+        {
+          "task_id": "student.problem_solver",
+          "title": "题目解析",
+          "description": "按步骤给出完整解法",
+          "default_skills": ["student_problem_solver"],
+          "mode": "precision",
+          "category": "student",
+          "min_plan": "pro"
+        }
+      ]
+    },
+    {
+      "role_id": "teacher",
+      "title": "老师",
+      "description": "备课、教案生成、学生分析统计",
+      "tasks": [
+        {
+          "task_id": "teacher.lesson_prep",
+          "title": "备课助手",
+          "description": "生成教案与课堂流程",
+          "default_skills": ["teacher_lesson_prep"],
+          "mode": "economy",
+          "category": "teacher",
+          "min_plan": "free"
+        },
+        {
+          "task_id": "teacher.student_stats",
+          "title": "学生分析统计",
+          "description": "按作业/成绩给分析结论",
+          "default_skills": ["teacher_student_segmentation"],
+          "mode": "precision",
+          "category": "teacher",
+          "min_plan": "pro"
+        }
+      ]
+    },
+    {
+      "role_id": "doctor",
+      "title": "医生",
+      "description": "病历结构化、病情总结、随访计划",
+      "tasks": [
+        {
+          "task_id": "doctor.case_structuring",
+          "title": "病历结构化",
+          "description": "把文本资料转换为结构化病历",
+          "default_skills": ["doctor_case_structuring"],
+          "mode": "precision",
+          "category": "doctor",
+          "min_plan": "pro"
+        },
+        {
+          "task_id": "doctor.followup_plan",
+          "title": "随访计划",
+          "description": "按病例输出随访建议",
+          "default_skills": ["doctor_followup_plan"],
+          "mode": "precision",
+          "category": "doctor",
+          "min_plan": "pro"
+        }
+      ]
+    },
+    {
+      "role_id": "lawyer",
+      "title": "律师",
+      "description": "合同审查、条款对比、风险提示",
+      "tasks": [
+        {
+          "task_id": "lawyer.contract_risk_scan",
+          "title": "合同风险扫描",
+          "description": "输出高风险条款与修订建议",
+          "default_skills": ["lawyer_contract_risk_scan"],
+          "mode": "precision",
+          "category": "lawyer",
+          "min_plan": "pro"
+        },
+        {
+          "task_id": "lawyer.clause_diff",
+          "title": "条款对比",
+          "description": "对比版本差异并解释影响",
+          "default_skills": ["lawyer_clause_diff"],
+          "mode": "precision",
+          "category": "lawyer",
+          "min_plan": "pro"
+        }
+      ]
+    },
+    {
+      "role_id": "accountant",
+      "title": "会计",
+      "description": "台账汇总、对账分析、报表输出",
+      "tasks": [
+        {
+          "task_id": "accountant.ledger_summary",
+          "title": "台账汇总",
+          "description": "汇总流水并形成账务摘要",
+          "default_skills": ["accountant_ledger_summary"],
+          "mode": "precision",
+          "category": "accountant",
+          "min_plan": "pro"
+        },
+        {
+          "task_id": "accountant.recon",
+          "title": "对账分析",
+          "description": "识别差异并给出原因",
+          "default_skills": ["accountant_reconciliation"],
+          "mode": "precision",
+          "category": "accountant",
+          "min_plan": "pro"
+        }
+      ]
+    },
+    {
+      "role_id": "support",
+      "title": "售后",
+      "description": "工单总结、FAQ 提炼",
+      "tasks": [
+        {
+          "task_id": "support.ticket_summary",
+          "title": "工单总结",
+          "description": "汇总问题、处理过程与结论",
+          "default_skills": ["support_ticket_summary"],
+          "mode": "economy",
+          "category": "support",
+          "min_plan": "free"
+        },
+        {
+          "task_id": "support.faq_extract",
+          "title": "FAQ提炼",
+          "description": "从工单中提炼可复用问答",
+          "default_skills": ["support_faq_extract"],
+          "mode": "economy",
+          "category": "support",
+          "min_plan": "free"
+        }
+      ]
+    },
+    {
+      "role_id": "ecommerce",
+      "title": "电商",
+      "description": "商品文案、运营周报",
+      "tasks": [
+        {
+          "task_id": "ecommerce.listing",
+          "title": "商品文案",
+          "description": "生成标题、卖点与详情",
+          "default_skills": ["ecommerce_listing_copy"],
+          "mode": "economy",
+          "category": "ecommerce",
+          "min_plan": "free"
+        },
+        {
+          "task_id": "ecommerce.ops_report",
+          "title": "运营周报",
+          "description": "按指标生成经营简报",
+          "default_skills": ["ecommerce_ops_report"],
+          "mode": "precision",
+          "category": "ecommerce",
+          "min_plan": "pro"
+        }
+      ]
+    }
+  ],
+  "generic_skills": [
+    {
+      "id": "file_analysis",
+      "name": "文件分析与输出",
+      "description": "读取项目内多源并输出结构化结果"
+    },
+    {
+      "id": "tender_collection_push",
+      "name": "定点采集和推送",
+      "description": "针对招投标、法拍、公告等信息定时采集推送"
+    }
+  ],
+  "skills": [
+    {
+      "id": "student_knowledge_summary",
+      "name": "知识点总结",
+      "description": "学生场景：按资料生成结构化复习总结",
+      "category": "student",
+      "min_plan": "free",
+      "source_url": "local://use-cases/student",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "student_kb_qa",
+      "name": "知识库内提问",
+      "description": "学生场景：在项目源内进行检索问答",
+      "category": "student",
+      "min_plan": "free",
+      "source_url": "local://use-cases/student",
+      "provider": "aioc",
+      "tools": ["source_lookup"]
+    },
+    {
+      "id": "student_mistake_book",
+      "name": "错题本整理",
+      "description": "学生场景：错题归因与复习策略",
+      "category": "student",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/student",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "student_problem_solver",
+      "name": "题目解析",
+      "description": "学生场景：分步骤问题求解",
+      "category": "student",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/student",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "teacher_lesson_prep",
+      "name": "备课助手",
+      "description": "老师场景：生成教案与课堂活动框架",
+      "category": "teacher",
+      "min_plan": "free",
+      "source_url": "local://use-cases/teacher",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "teacher_student_segmentation",
+      "name": "学生分析统计",
+      "description": "老师场景：分层统计与建议输出",
+      "category": "teacher",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/teacher",
+      "provider": "aioc",
+      "tools": ["artifact_render", "request_data_chart"]
+    },
+    {
+      "id": "doctor_case_structuring",
+      "name": "病历结构化",
+      "description": "医生场景：整理病历并输出结构化记录",
+      "category": "doctor",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/doctor",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "doctor_followup_plan",
+      "name": "随访计划",
+      "description": "医生场景：按病例生成后续随访计划",
+      "category": "doctor",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/doctor",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "lawyer_contract_risk_scan",
+      "name": "合同风险扫描",
+      "description": "律师场景：识别高风险条款与改写建议",
+      "category": "lawyer",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/lawyer",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "lawyer_clause_diff",
+      "name": "条款对比",
+      "description": "律师场景：比对合同条款差异",
+      "category": "lawyer",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/lawyer",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "accountant_ledger_summary",
+      "name": "台账汇总",
+      "description": "会计场景：多表汇总生成账务摘要",
+      "category": "accountant",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/accountant",
+      "provider": "aioc",
+      "tools": ["artifact_render", "request_data_chart"]
+    },
+    {
+      "id": "accountant_reconciliation",
+      "name": "对账分析",
+      "description": "会计场景：识别对账差异与异常",
+      "category": "accountant",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/accountant",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "support_ticket_summary",
+      "name": "工单总结",
+      "description": "售后场景：按工单生成处理总结",
+      "category": "support",
+      "min_plan": "free",
+      "source_url": "local://use-cases/support",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "support_faq_extract",
+      "name": "FAQ提炼",
+      "description": "售后场景：从历史工单提炼FAQ",
+      "category": "support",
+      "min_plan": "free",
+      "source_url": "local://use-cases/support",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "ecommerce_listing_copy",
+      "name": "商品文案",
+      "description": "电商场景：生成标题、卖点、详情",
+      "category": "ecommerce",
+      "min_plan": "free",
+      "source_url": "local://use-cases/ecommerce",
+      "provider": "aioc",
+      "tools": ["artifact_render"]
+    },
+    {
+      "id": "ecommerce_ops_report",
+      "name": "运营周报",
+      "description": "电商场景：按指标生成经营报告",
+      "category": "ecommerce",
+      "min_plan": "pro",
+      "source_url": "local://use-cases/ecommerce",
+      "provider": "aioc",
+      "tools": ["artifact_render", "request_data_chart"]
+    },
+    {
+      "id": "file_analysis",
+      "name": "文件分析与输出",
+      "description": "通用能力：分析文件并生成结果文件",
+      "category": "generic",
+      "min_plan": "free",
+      "source_url": "local://generic/file-analysis",
+      "provider": "aioc",
+      "tools": ["artifact_render", "source_lookup"]
+    },
+    {
+      "id": "tender_collection_push",
+      "name": "定点采集和推送",
+      "description": "通用能力：面向招投标、法拍等主题的信息采集和推送",
+      "category": "generic",
+      "min_plan": "team",
+      "source_url": "local://generic/collection-push",
+      "provider": "aioc",
+      "tools": ["source_lookup", "request_calendar"]
+    },
+    {
+      "id": "shell_ops",
+      "name": "Shell Ops",
+      "description": "系统诊断与命令执行（受计划和策略限制）",
+      "category": "operations",
+      "min_plan": "pro",
+      "source_url": "local://generic/shell",
+      "provider": "aioc",
+      "tools": ["execute_command"]
+    }
+  ]
+}

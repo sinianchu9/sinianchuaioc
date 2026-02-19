@@ -1,0 +1,64 @@
+# AIOC Server Configuration
+server:
+  gateway_port: 8080
+  core_port: 8081
+  mode: "development" # development | production
+
+# JWT Configuration
+jwt:
+  secret: "aioc-dev-jwt-secret-change-in-production-2024"
+  expire_hours: 24
+  refresh_expire_hours: 168 # 7 days
+
+# Database
+database:
+  host: "postgres"
+  port: 5432
+  user: "aioc"
+  password: "aioc_dev_2024"
+  dbname: "aioc"
+  max_conns: 20
+  min_conns: 5
+
+# Redis
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 0
+
+# LLM Providers
+llm:
+  deepseek:
+    api_key: "" # Set via DEEPSEEK_API_KEY env var
+    base_url: "https://api.deepseek.com"
+    default_model: "deepseek-chat"
+    timeout_seconds: 60
+
+  openai:
+    api_key: "" # Set via OPENAI_API_KEY env var
+    base_url: "https://api.openai.com"
+    default_model: "gpt-4"
+    timeout_seconds: 90
+
+  ollama:
+    base_url: "http://ollama:11434"
+    default_model: "llama3"
+    timeout_seconds: 120
+
+# Rate Limiting & Circuit Breaker
+ratelimit:
+  requests_per_minute: 60
+  tokens_per_minute: 100000
+  cost_limit_per_minute: 5.00 # USD, circuit breaker threshold per user
+  burst_size: 10
+
+# Routing defaults
+routing:
+  default_mode: "economy"
+  fallback_timeout_seconds: 30
+
+# Billing
+billing:
+  free_token_quota: 10000
+  pro_monthly_price: 20.00

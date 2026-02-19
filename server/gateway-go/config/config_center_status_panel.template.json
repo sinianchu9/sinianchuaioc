@@ -1,0 +1,227 @@
+{
+  "schema_version": "1.0.0",
+  "panel_id": "aioc-config-center",
+  "title": "AIOC Configuration Center",
+  "last_refresh_at": "",
+  "environment": {
+    "profile": "production",
+    "gateway_version": "",
+    "core_version": "",
+    "engine_version": ""
+  },
+  "summary": {
+    "overall_status": "blocked",
+    "status_reason": "missing mandatory integrations",
+    "counts": {
+      "tools_total": 0,
+      "tools_ready": 0,
+      "tools_blocked": 0,
+      "integrations_total": 0,
+      "integrations_ready": 0,
+      "integrations_missing": 0,
+      "mandatory_missing": 0
+    }
+  },
+  "status_legend": {
+    "ok": "ready and healthy",
+    "warn": "usable with risk or degraded mode",
+    "blocked": "cannot run required workflow",
+    "unknown": "not yet checked"
+  },
+  "bootstrap_check_result": {
+    "executed": false,
+    "pass": false,
+    "rules": [
+      {
+        "rule_name": "at least one llm provider configured",
+        "status": "blocked",
+        "message": "",
+        "blocking": true
+      },
+      {
+        "rule_name": "if browser enabled, playwright and chromium must exist",
+        "status": "unknown",
+        "message": "",
+        "blocking": true
+      },
+      {
+        "rule_name": "if enterprise query workflows enabled, kb_search must exist",
+        "status": "unknown",
+        "message": "",
+        "blocking": true
+      },
+      {
+        "rule_name": "if enterprise action workflows enabled, notify_send and task_create must exist",
+        "status": "unknown",
+        "message": "",
+        "blocking": true
+      }
+    ]
+  },
+  "tool_status": [
+    {
+      "tool_id": "web_search",
+      "category": "builtin",
+      "status": "warn",
+      "enabled": true,
+      "install_via": "builtin",
+      "missing_dependencies": [],
+      "missing_integrations": ["search.brave|search.perplexity|search.openrouter"],
+      "notes": "requires one external search provider"
+    },
+    {
+      "tool_id": "browser",
+      "category": "builtin",
+      "status": "unknown",
+      "enabled": true,
+      "install_via": "npm",
+      "missing_dependencies": ["playwright", "chromium"],
+      "missing_integrations": [],
+      "notes": ""
+    },
+    {
+      "tool_id": "artifact_render",
+      "category": "aioc_engine_tool",
+      "status": "unknown",
+      "enabled": true,
+      "install_via": "builtin",
+      "missing_dependencies": ["python3", "docx/xlsx/pdf renderer dependencies"],
+      "missing_integrations": [],
+      "notes": ""
+    }
+  ],
+  "integration_status": [
+    {
+      "integration_id": "llm.openai",
+      "category": "foundation",
+      "mandatory": false,
+      "status": "unknown",
+      "configured": false,
+      "last_validated_at": "",
+      "required_fields": ["OPENAI_API_KEY"],
+      "missing_fields": ["OPENAI_API_KEY"],
+      "notes": ""
+    },
+    {
+      "integration_id": "llm.any",
+      "category": "foundation",
+      "mandatory": true,
+      "status": "blocked",
+      "configured": false,
+      "last_validated_at": "",
+      "required_fields": [],
+      "missing_fields": [],
+      "notes": "at least one LLM provider must be configured"
+    },
+    {
+      "integration_id": "kb_search",
+      "category": "query",
+      "mandatory": true,
+      "status": "blocked",
+      "configured": false,
+      "last_validated_at": "",
+      "required_fields": ["base_url", "auth_type", "credential", "index_or_collection", "timeout_ms"],
+      "missing_fields": ["base_url", "auth_type", "credential", "index_or_collection", "timeout_ms"],
+      "notes": ""
+    },
+    {
+      "integration_id": "notify_send",
+      "category": "action",
+      "mandatory": true,
+      "status": "blocked",
+      "configured": false,
+      "last_validated_at": "",
+      "required_fields": ["base_url", "auth_type", "credential", "channel", "retry_policy"],
+      "missing_fields": ["base_url", "auth_type", "credential", "channel", "retry_policy"],
+      "notes": ""
+    }
+  ],
+  "workflow_readiness": [
+    {
+      "workflow_type": "query",
+      "status": "blocked",
+      "blocking_items": ["kb_search"],
+      "message": "enterprise retrieval integration is missing"
+    },
+    {
+      "workflow_type": "generate",
+      "status": "warn",
+      "blocking_items": [],
+      "message": "artifact dependencies not validated"
+    },
+    {
+      "workflow_type": "action",
+      "status": "blocked",
+      "blocking_items": ["notify_send", "task_create"],
+      "message": "mandatory action integrations are missing"
+    }
+  ],
+  "profession_readiness": [
+    {
+      "role_id": "student",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "teacher",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "notify_send", "task_create"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "doctor",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "db_query", "notify_send", "task_create"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "lawyer",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "db_query", "notify_send", "task_create"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "accountant",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "db_query", "notify_send", "task_create"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "support",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "db_query", "notify_send", "task_create"],
+      "blocking_tools": []
+    },
+    {
+      "role_id": "ecommerce",
+      "status": "blocked",
+      "blocking_integrations": ["kb_search", "db_query", "notify_send", "task_create"],
+      "blocking_tools": []
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "configure_llm_provider",
+      "priority": "p0",
+      "type": "integration_setup",
+      "target": "llm.any",
+      "message": "configure at least one LLM provider"
+    },
+    {
+      "action_id": "configure_enterprise_query",
+      "priority": "p0",
+      "type": "integration_setup",
+      "target": "kb_search",
+      "message": "configure enterprise retrieval API"
+    },
+    {
+      "action_id": "configure_enterprise_action",
+      "priority": "p0",
+      "type": "integration_setup",
+      "target": "notify_send+task_create",
+      "message": "configure enterprise action APIs"
+    }
+  ]
+}
+

@@ -1,0 +1,411 @@
+{
+  "schema_version": "1.1.0",
+  "manifest_id": "aioc-openclaw-tooling",
+  "description": "OpenClaw tooling bootstrap and admin integration manifest for workflow-oriented profession skills.",
+  "last_updated": "2026-02-19",
+  "environment": {
+    "default_profile": "production",
+    "profiles": ["development", "staging", "production"]
+  },
+  "capability_boundary": {
+    "openclaw_builtin": [
+      "filesystem and command execution",
+      "web search and web fetch",
+      "browser automation",
+      "session and agent orchestration",
+      "cron scheduling",
+      "messaging adapters",
+      "plugin runtime"
+    ],
+    "requires_external_api_or_enterprise_system": [
+      "industry knowledge base retrieval",
+      "business database query",
+      "enterprise notifications",
+      "ticket or task creation",
+      "domain workflow actions"
+    ]
+  },
+  "system_init_install_tools": [
+    {
+      "tool_id": "exec",
+      "category": "builtin",
+      "workflow_types": ["query", "generate", "action"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["shell"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "read",
+      "category": "builtin",
+      "workflow_types": ["query"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["filesystem"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "write",
+      "category": "builtin",
+      "workflow_types": ["generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["filesystem"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "edit",
+      "category": "builtin",
+      "workflow_types": ["generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["filesystem"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "apply_patch",
+      "category": "builtin",
+      "workflow_types": ["generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["filesystem"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "process",
+      "category": "builtin",
+      "workflow_types": ["query", "action"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["process_manager"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "web_search",
+      "category": "builtin",
+      "workflow_types": ["query"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["network"],
+      "required_config_keys": ["BRAVE_API_KEY|PERPLEXITY_API_KEY|OPENROUTER_API_KEY"],
+      "admin_provided": true
+    },
+    {
+      "tool_id": "web_fetch",
+      "category": "builtin",
+      "workflow_types": ["query"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["network"],
+      "required_config_keys": ["FIRECRAWL_API_KEY (optional for enhanced crawling)"],
+      "admin_provided": true
+    },
+    {
+      "tool_id": "browser",
+      "category": "builtin",
+      "workflow_types": ["query", "action"],
+      "install": {
+        "via": "npm",
+        "package": "@openclaw/browser"
+      },
+      "runtime_requirements": ["playwright", "chromium"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "cron",
+      "category": "builtin",
+      "workflow_types": ["action"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["scheduler"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "artifact_render",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["python3", "docx/xlsx/pdf renderer dependencies"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "artifact_bundle_zip",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["zip"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "source_lookup",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["query"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["project_sources access"],
+      "required_config_keys": [],
+      "admin_provided": false
+    },
+    {
+      "tool_id": "ocr_extract",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["query", "generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["ocr runtime binding"],
+      "required_config_keys": ["OCR_API_BASE_URL", "OCR_API_TOKEN"],
+      "admin_provided": true
+    },
+    {
+      "tool_id": "asr_transcribe",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["query", "generate"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["asr runtime binding"],
+      "required_config_keys": ["ASR_API_BASE_URL", "ASR_API_TOKEN"],
+      "admin_provided": true
+    },
+    {
+      "tool_id": "tts_synthesize",
+      "category": "aioc_engine_tool",
+      "workflow_types": ["generate", "action"],
+      "install": {
+        "via": "builtin"
+      },
+      "runtime_requirements": ["tts runtime binding"],
+      "required_config_keys": ["TTS_API_BASE_URL", "TTS_API_TOKEN"],
+      "admin_provided": true
+    }
+  ],
+  "admin_provided_api_integrations": [
+    {
+      "integration_id": "search.brave",
+      "category": "query",
+      "description": "Brave search provider",
+      "required_fields": ["BRAVE_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "search.perplexity",
+      "category": "query",
+      "description": "Perplexity search provider",
+      "required_fields": ["PERPLEXITY_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "search.openrouter",
+      "category": "query",
+      "description": "OpenRouter provider for web search and model fallback",
+      "required_fields": ["OPENROUTER_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "crawl.firecrawl",
+      "category": "query",
+      "description": "Enhanced web crawling and extraction",
+      "required_fields": ["FIRECRAWL_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "llm.openai",
+      "category": "foundation",
+      "description": "OpenAI model provider",
+      "required_fields": ["OPENAI_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "llm.anthropic",
+      "category": "foundation",
+      "description": "Anthropic model provider",
+      "required_fields": ["ANTHROPIC_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "llm.google",
+      "category": "foundation",
+      "description": "Google model provider",
+      "required_fields": ["GOOGLE_API_KEY"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "llm.any",
+      "category": "foundation",
+      "description": "At least one LLM provider must be configured",
+      "constraint": {
+        "any_of": ["llm.openai", "llm.anthropic", "llm.google", "search.openrouter"]
+      },
+      "mandatory": true
+    },
+    {
+      "integration_id": "kb_search",
+      "category": "query",
+      "required_for_professions": ["student", "teacher", "doctor", "lawyer", "accountant", "support", "ecommerce"],
+      "description": "Enterprise knowledge base retrieval API",
+      "required_fields": ["base_url", "auth_type", "credential", "index_or_collection", "timeout_ms"],
+      "tool_aliases": ["query.kb_search"],
+      "mandatory": true
+    },
+    {
+      "integration_id": "db_query",
+      "category": "query",
+      "required_for_professions": ["doctor", "lawyer", "accountant", "support", "ecommerce"],
+      "description": "Business database read API with row-level permission and audit",
+      "required_fields": ["base_url", "auth_type", "credential", "query_policy_id", "timeout_ms"],
+      "tool_aliases": ["query.db_query"],
+      "mandatory": true
+    },
+    {
+      "integration_id": "notify_send",
+      "category": "action",
+      "required_for_professions": ["teacher", "doctor", "lawyer", "accountant", "support", "ecommerce"],
+      "description": "Notification delivery API (IM/email/sms)",
+      "required_fields": ["base_url", "auth_type", "credential", "channel", "retry_policy"],
+      "tool_aliases": ["action.notify_send"],
+      "mandatory": true
+    },
+    {
+      "integration_id": "task_create",
+      "category": "action",
+      "required_for_professions": ["teacher", "doctor", "lawyer", "accountant", "support", "ecommerce"],
+      "description": "Task/ticket creation API",
+      "required_fields": ["base_url", "auth_type", "credential", "project_or_queue", "idempotency_key_mode"],
+      "tool_aliases": ["action.task_create"],
+      "mandatory": true
+    },
+    {
+      "integration_id": "webhook_post",
+      "category": "action",
+      "required_for_professions": ["student", "teacher", "doctor", "lawyer", "accountant", "support", "ecommerce"],
+      "description": "Generic outbound webhook for system actions",
+      "required_fields": ["base_url", "auth_type", "credential", "allowed_hosts", "idempotency_key_mode"],
+      "tool_aliases": ["action.webhook_post"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "ocr.api",
+      "category": "multimodal",
+      "description": "OCR provider API for image-to-text",
+      "required_fields": ["OCR_API_BASE_URL", "OCR_API_TOKEN"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "asr.api",
+      "category": "multimodal",
+      "description": "ASR provider API for audio-to-text",
+      "required_fields": ["ASR_API_BASE_URL", "ASR_API_TOKEN"],
+      "mandatory": false
+    },
+    {
+      "integration_id": "tts.api",
+      "category": "multimodal",
+      "description": "TTS provider API for text-to-audio",
+      "required_fields": ["TTS_API_BASE_URL", "TTS_API_TOKEN"],
+      "mandatory": false
+    }
+  ],
+  "dependency_map": {
+    "web_search": {
+      "any_of_integrations": ["search.brave", "search.perplexity", "search.openrouter"]
+    },
+    "web_fetch": {
+      "optional_integrations": ["crawl.firecrawl"]
+    },
+    "source_lookup": {
+      "all_of_system_requirements": ["project_sources access"]
+    },
+    "artifact_render": {
+      "all_of_system_requirements": ["python3", "docx/xlsx/pdf renderer dependencies"]
+    },
+    "ocr_extract": {
+      "all_of_integrations": ["ocr.api"]
+    },
+    "asr_transcribe": {
+      "all_of_integrations": ["asr.api"]
+    },
+    "tts_synthesize": {
+      "all_of_integrations": ["tts.api"]
+    },
+    "workflow.query.enterprise": {
+      "all_of_integrations": ["kb_search"]
+    },
+    "workflow.action.enterprise": {
+      "all_of_integrations": ["notify_send", "task_create"]
+    }
+  },
+  "bootstrap_checks": {
+    "fail_fast": true,
+    "required_sections": ["system_init_install_tools", "admin_provided_api_integrations", "dependency_map", "workflow_enforcement_rules"],
+    "rules": [
+      {
+        "name": "at least one llm provider configured",
+        "ref_integration": "llm.any"
+      },
+      {
+        "name": "if browser enabled, playwright and chromium must exist",
+        "when_tool_enabled": "browser",
+        "require_system_deps": ["playwright", "chromium"]
+      },
+      {
+        "name": "if enterprise query workflows enabled, kb_search must exist",
+        "when_workflow_type": "query",
+        "require_integrations": ["kb_search"]
+      },
+      {
+        "name": "if enterprise action workflows enabled, notify_send and task_create must exist",
+        "when_workflow_type": "action",
+        "require_integrations": ["notify_send", "task_create"]
+      }
+    ]
+  },
+  "workflow_enforcement_rules": {
+    "query": {
+      "must_emit_tool_call": true,
+      "required_tool_categories": ["query"],
+      "fail_code_if_missing": "ERR_MISSING_REQUIRED_QUERY_TOOL_CALL"
+    },
+    "generate": {
+      "must_emit_tool_call": true,
+      "must_emit_artifact": true,
+      "required_tool_categories": ["generate"],
+      "fail_code_if_missing": "ERR_ARTIFACT_NOT_GENERATED"
+    },
+    "action": {
+      "must_emit_tool_call": true,
+      "must_emit_action_receipt": true,
+      "required_tool_categories": ["action"],
+      "fail_code_if_missing": "ERR_ACTION_NOT_CONFIRMED"
+    }
+  },
+  "skill_binding_policy": {
+    "allow_only_declared_tools": true,
+    "tool_name_namespace": ["query.", "generate.", "action.", "openclaw.", "aioc."],
+    "reject_skill_if_tool_missing_in_manifest": true
+  }
+}

@@ -1,0 +1,134 @@
+version: "3.8"
+
+# AIOC SaaS Development Environment
+# Usage: docker-compose -f infra/docker-compose/saas.dev.yml up -d
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: aioc-postgres
+    environment:
+      POSTGRES_USER: aioc
+      POSTGRES_PASSWORD: aioc_dev_2024
+      POSTGRES_DB: aioc
+    ports:
+      - "54321:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../server/migrations/001_init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ../../server/migrations/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aioc -d aioc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aioc-net
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: aioc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - aioc-net
+
+  # API Gateway
+  gateway:
+    build:
+      context: ../../server
+      dockerfile: docker/Dockerfile.gateway
+    container_name: aioc-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - AIOC_MODE=development
+      - GATEWAY_PORT=8080
+      - CORE_PORT=8081
+      - JWT_SECRET=aioc-dev-jwt-secret-change-in-production-2024
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=aioc
+      - DB_PASSWORD=aioc_dev_2024
+      - DB_NAME=aioc
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-sk-9d56ecd686d3421caed790e17ffa71ed}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CORE_SERVICE_URL=http://core:8081
+      - CONFIG_PATH=/app/configs/config.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aioc-net
+
+  # Core Orchestrator
+  core:
+    build:
+      context: ../../server
+      dockerfile: docker/Dockerfile.core
+    container_name: aioc-core
+    ports:
+      - "8081:8081"
+    environment:
+      - AIOC_MODE=development
+      - CORE_PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=aioc
+      - DB_PASSWORD=aioc_dev_2024
+      - DB_NAME=aioc
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-sk-9d56ecd686d3421caed790e17ffa71ed}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - CONFIG_PATH=/app/configs/config.yaml
+      - ENGINE_PROVIDER=${ENGINE_PROVIDER:-openclaw}
+      - ENGINE_URL=http://engine-openclaw:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aioc-net
+
+  # OpenClaw Engine Runner (stateless, internal-only)
+  engine-openclaw:
+    build:
+      context: ../../server/engine-openclaw
+      dockerfile: Dockerfile
+    container_name: aioc-engine-openclaw
+    environment:
+      - PORT=8000
+    # No public ports — internal network only
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - aioc-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  aioc-net:
+    driver: bridge
