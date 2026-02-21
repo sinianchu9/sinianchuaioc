@@ -66,6 +66,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - CORE_SERVICE_URL=http://core:8081
       - CONFIG_PATH=/app/configs/config.yaml
+      - MASTER_KEY=${MASTER_KEY:-aioc-dev-master-key-32bytes-2024xx}
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +99,7 @@ services:
       - CONFIG_PATH=/app/configs/config.yaml
       - ENGINE_PROVIDER=${ENGINE_PROVIDER:-openclaw}
       - ENGINE_URL=http://engine-openclaw:8000
+      - MASTER_KEY=${MASTER_KEY:-aioc-dev-master-key-32bytes-2024xx}
     depends_on:
       postgres:
         condition: service_healthy
