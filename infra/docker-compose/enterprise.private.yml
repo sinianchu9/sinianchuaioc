@@ -86,7 +86,6 @@ services:
     networks:
       - aioc-ent
 
-  # Core Orchestrator
   core:
     build:
       context: ../../server
@@ -110,6 +109,7 @@ services:
       - CONFIG_PATH=/app/configs/config.yaml
       - ENGINE_PROVIDER=${ENGINE_PROVIDER:-openclaw}
       - ENGINE_URL=http://engine-openclaw:8000
+      - MASTER_KEY=${MASTER_KEY:-} # 与 gateway 共享同一 MASTER_KEY 用于解密集成密钥
     depends_on:
       postgres:
         condition: service_healthy

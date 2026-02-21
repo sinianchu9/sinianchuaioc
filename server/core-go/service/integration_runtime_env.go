@@ -31,6 +31,12 @@ func (s *ChatService) loadIntegrationRuntimeEnv(ctx context.Context, tenantID st
 		return map[string]string{}
 	}
 
+	// 预检 MASTER_KEY，缺失则直接警告，引擎 process.env 兜底仍有效
+	if _, err := deriveRuntimeMasterKey(); err != nil {
+		log.Printf("[integration_env] WARNING: MASTER_KEY not set, config center secrets will not be injected into engine requests. Set MASTER_KEY env var on the core service.")
+		return map[string]string{}
+	}
+
 	rows, err := s.db.Query(ctx, `
 SELECT s.secret_key_name, s.secret_ciphertext
   FROM integration_secrets s
@@ -43,7 +49,7 @@ SELECT s.secret_key_name, s.secret_ciphertext
 `, tenantID, runtimeIntegrationIDs)
 	if err != nil {
 		// Keep request path resilient during rollout or before migration.
-		log.Printf("loadIntegrationRuntimeEnv skipped: %v", err)
+		log.Printf("[integration_env] DB query failed: %v", err)
 		return map[string]string{}
 	}
 	defer rows.Close()
@@ -59,9 +65,13 @@ SELECT s.secret_key_name, s.secret_ciphertext
 		}
 		plain, err := decryptRuntimeSecret(cipherText)
 		if err != nil {
+			log.Printf("[integration_env] decrypt failed for key=%s: %v", keyName, err)
 			continue
 		}
 		out[keyName] = plain
+	}
+	if len(out) > 0 {
+		log.Printf("[integration_env] injected %d integration secret(s) for tenant=%s", len(out), tenantID[:8])
 	}
 	return out
 }
