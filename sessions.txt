@@ -1,0 +1,8 @@
+              session_id              |              project_id              
+--------------------------------------+--------------------------------------
+ 4fa8d34e-c304-4bfb-93c4-9b8fcc94bae0 | f1f09cce-9ac4-4193-a7e6-bf74360d6e64
+ 6ab9f10d-bc72-4ea4-a4bd-28ad29bb3699 | ddfb4d3c-9e3f-45bf-9bde-60ed536208d7
+ d95878a1-b1a2-40a1-a1b6-436e24cb8b16 | 
+ 3845fb67-a7ff-464e-8c95-3ba606cf6370 | ddfb4d3c-9e3f-45bf-9bde-60ed536208d7
+(4 rows)
+

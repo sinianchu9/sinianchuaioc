@@ -5,11 +5,10 @@ import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/language_provider.dart';
-import 'automations_screen.dart';
-import 'chat_screen.dart';
 import 'config_center_screen.dart';
 import 'materials_screen.dart';
-import 'projects_screen.dart';
+import 'automations_screen.dart';
+import 'workspace_screen.dart';
 import 'skills_screen.dart';
 import 'usage_screen.dart';
 
@@ -42,10 +41,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isAdmin = authState.roles.contains('admin');
 
     final screens = <Widget>[
-      const ChatScreen(),
+      const WorkspaceScreen(), // Combines Chat and Projects
       const SkillsScreen(),
       const MaterialsScreen(),
-      ProjectsScreen(onOpenChat: () => setState(() => _currentIndex = 0)),
       const AutomationsScreen(),
       if (isAdmin) const ConfigCenterScreen(),
       const UsageScreen(),
@@ -153,13 +151,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           const Divider(color: AIOCTheme.surfaceLight, height: 1),
 
-          _buildNavItem(Icons.chat_bubble_outline, l10n.t('chat'), 0),
-          _buildNavItem(Icons.extension_outlined, '使用场景', 1),
-          _buildNavItem(Icons.inventory_2_outlined, '资料', 2),
-          _buildNavItem(Icons.folder_open_outlined, '项目', 3),
-          _buildNavItem(Icons.schedule, l10n.t('automations'), 4),
-          if (isAdmin) _buildNavItem(Icons.settings_suggest_outlined, '配置中心', 5),
-          _buildNavItem(Icons.analytics_outlined, l10n.t('usage'), usageIndex),
+          _buildNavItem(Icons.dashboard_outlined, '工作台', 0),
+          _buildNavItem(Icons.local_mall_outlined, '技能模板', 1),
+          _buildNavItem(Icons.archive_outlined, '资产库', 2),
+          _buildNavItem(Icons.schedule, l10n.t('automations'), 3),
+          if (isAdmin)
+            _buildNavItem(Icons.settings_suggest_outlined, '配置中心', 4),
+          _buildNavItem(
+            Icons.analytics_outlined,
+            l10n.t('usage'),
+            usageIndex - 1,
+          ),
 
           const Divider(color: AIOCTheme.surfaceLight, height: 1),
           Padding(
@@ -199,7 +201,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                     onChanged: (value) {
                       if (value != null) {
-                        ref.read(languageProvider.notifier).setLocaleCode(value);
+                        ref
+                            .read(languageProvider.notifier)
+                            .setLocaleCode(value);
                       }
                     },
                   ),
@@ -268,7 +272,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
-        color: isActive ? AIOCTheme.primary.withOpacity(0.15) : Colors.transparent,
+        color: isActive
+            ? AIOCTheme.primary.withOpacity(0.15)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: () {
@@ -290,7 +296,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Text(
                     session.title,
                     style: TextStyle(
-                      color: isActive ? AIOCTheme.textPrimary : AIOCTheme.textSecondary,
+                      color: isActive
+                          ? AIOCTheme.textPrimary
+                          : AIOCTheme.textSecondary,
                       fontSize: 13,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -304,7 +312,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       size: 16,
                       color: AIOCTheme.textSecondary,
                     ),
-                    onPressed: () => ref.read(chatProvider.notifier).deleteSession(session.id),
+                    onPressed: () => ref
+                        .read(chatProvider.notifier)
+                        .deleteSession(session.id),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

@@ -26,21 +26,22 @@ type AIEngine interface {
 // AgentRequest is the standard input sent from Go Core to any engine.
 // All context (messages, config, tools) is provided per-request — engines are stateless.
 type AgentRequest struct {
-	SessionID      string          `json:"session_id"`
-	Messages       []Message       `json:"messages"`
-	Config         ModelConfig     `json:"config"`
-	Skills         []string        `json:"skills,omitempty"`
-	RoleID         string          `json:"role_id,omitempty"`
-	TaskID         string          `json:"task_id,omitempty"`
-	ProjectID      string          `json:"project_id,omitempty"`
-	ProjectSources []ProjectSource `json:"project_sources,omitempty"`
-	AllowedTools   []string        `json:"allowed_tools,omitempty"`
-	PlanLevel      string          `json:"plan_level,omitempty"`
-	Mode           string          `json:"mode"` // economy, precision, privacy
-	TraceID        string          `json:"trace_id"`
-	TenantID       string          `json:"tenant_id"`
-	UserID         string          `json:"user_id"`
-	ClientID       string          `json:"client_id,omitempty"`
+	SessionID      string            `json:"session_id"`
+	Messages       []Message         `json:"messages"`
+	Config         ModelConfig       `json:"config"`
+	Skills         []string          `json:"skills,omitempty"`
+	RoleID         string            `json:"role_id,omitempty"`
+	TaskID         string            `json:"task_id,omitempty"`
+	ProjectID      string            `json:"project_id,omitempty"`
+	ProjectSources []ProjectSource   `json:"project_sources,omitempty"`
+	AllowedTools   []string          `json:"allowed_tools,omitempty"`
+	PlanLevel      string            `json:"plan_level,omitempty"`
+	Mode           string            `json:"mode"` // economy, precision, privacy
+	TraceID        string            `json:"trace_id"`
+	TenantID       string            `json:"tenant_id"`
+	UserID         string            `json:"user_id"`
+	ClientID       string            `json:"client_id,omitempty"`
+	IntegrationEnv map[string]string `json:"integration_env,omitempty"`
 }
 
 type ProjectSource struct {
@@ -75,8 +76,9 @@ type EngineEvent struct {
 	// For type=content
 	Delta string `json:"delta,omitempty"`
 	// For type=tool_call (Phase 2)
-	Tool string          `json:"tool,omitempty"`
-	Args json.RawMessage `json:"args,omitempty"`
+	Tool        string          `json:"tool,omitempty"`
+	DisplayName string          `json:"display_name,omitempty"`
+	Args        json.RawMessage `json:"args,omitempty"`
 	// For type=tool_result
 	Result string `json:"result,omitempty"`
 	// For type=ui_component

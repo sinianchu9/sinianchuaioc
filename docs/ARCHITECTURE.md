@@ -12,12 +12,14 @@ Core principle: **Skills over Models**, upgraded from **Role -> Task -> Skills**
 `Flutter Client -> Gateway (Go) -> Core (Go) -> Engine OpenClaw (Node/TS) -> LLM Providers/Tools`
 
 Supporting services:
+
 - PostgreSQL: users, sessions, billing, audit, automations, automation runs, projects, project_sources, project_artifacts.
 - Redis: rate limiting and cost circuit breaker state.
 
 ## 3. Service Responsibilities
 
 ### Gateway (`server/gateway-go`)
+
 - JWT auth and refresh.
 - plan/client checks and access guardrails.
 - billing pre-check and rate/cost limiting.
@@ -46,6 +48,7 @@ Supporting services:
     - `GET /api/v1/admin/status/summary`
 
 ### Core (`server/core-go`)
+
 - request orchestration and model routing.
 - skill-to-tool policy derivation (`plan + skills -> allowed_tools`).
 - role/task/project context injection into system prompt.
@@ -54,11 +57,19 @@ Supporting services:
   - required tool calls
   - required artifact/action outputs
 - project source loading from DB and handoff to engine (`project_sources`).
-- billing + audit + session persistence transaction (`CommitUsage`).
+- billing + audit + Session history persistence (`sessions.messages`) and session detail API.
+- Session-Project Isolation: sessions are strictly scoped to project IDs; switching projects resets the active session state.
+- Global Draft Chat: dedicated UI entry for managing non-project specific history.
+- Stop-generation support for stream interruption.
 - project artifact persistence (`project_artifacts`) from engine tool results.
 - engine SPI orchestration and SSE event normalization.
+- runtime integration credential injection:
+  - load tenant-scoped secret records from `integration_secrets`
+  - decrypt with `MASTER_KEY` in core
+  - pass allowlisted runtime keys to engine through `integration_env`
 
 ### Engine OpenClaw (`server/engine-openclaw`)
+
 - OpenClaw execution runtime and tool loop.
 - tool safety policy enforcement.
 - workflow step execution and step-level evidence emission (planned).
@@ -69,13 +80,14 @@ Supporting services:
 - emits structured events: `content`, `tool_call`, `tool_result`, `ui_component`, `usage`, `done`, `error`.
 - multimodal execution status:
   - execution tools implemented: `ocr_extract`, `asr_transcribe`, `tts_synthesize`
-  - provider access still depends on runtime integration credentials (engine env / integration injection)
+  - provider access supports per-request `integration_env` from config center, with process env fallback
 
 ## 4. Data Isolation and Consistency
 
 - Session mutations are scoped by `session_id + user_id`.
 - Project/source/artifact operations are user-scoped and tenant-scoped.
 - Usage logging and billing are transactionally committed in one flow.
+  - _Architecture Note: To handle high-concurrency peak loads reliably without saturating DB connection limits, `CommitUsage` is slated for architectural optimization through queue-based asynchronous eventual consistency._
 - `billing_logs.request_id` is unique for idempotency.
 - Audit/Billing include `skills_used` for traceability.
 - Artifacts are linked by `project_id + run_id + role_id + task_id`.
@@ -89,14 +101,24 @@ Supporting services:
    - role task panel grouped by profession
    - generic capabilities moved to `更多`
    - supports `添加新技能`
-4. Request carries `skills[] + role_id + task_id + project_id`.
-5. Core computes allowed tools, injects role-task directives, and loads project sources.
-6. Engine executes within allowed tool set and streams capability events.
-7. Artifact tool results are persisted to `project_artifacts`.
 
-## 5.1 Workflow-Oriented Skill Contract (Target Architecture)
+### 5.1 Adaptive Workspace UI Flow (Phase 2.2)
+
+The client implements a three-tier navigation structure to reduce cognitive load:
+
+1.  **Workspaces (Dashboard)**: Grid of project cards + a fixed **Global Draft Chat** entry for non-project history.
+2.  **Project Detail**: Intermediate screen for a specific project. Displays linked sources, allows source management, and provides a clear "Start Working" entry point.
+3.  **Project Chat**: The core execution environment (Control Plane) where LLM interaction and tool execution happen.
+
+### 5.2 Dynamic Designing: Draft vs formal projects
+
+- **Progressive Disclosure**: Users can start with "Global Draft Chat" without any project setup.
+- **Project Promotion**: Temporary/draft interactions can be promoted to formal projects to gain persistence and source management.
+
+## 6. Project Source and Artifact Flow
 
 Each skill is a workflow contract, not only a natural-language instruction:
+
 - `input_schema`: accepted params and source requirements.
 - `workflow_steps`: ordered machine-readable steps with step type.
 - `step_constraints`: hard constraints (tool required, timeout, min evidence).
@@ -104,6 +126,7 @@ Each skill is a workflow contract, not only a natural-language instruction:
 - `quality_gates`: deterministic checks before success.
 
 Step types:
+
 - `query`: must emit retrieval `tool_call` evidence.
 - `generate`: must emit artifact generation evidence.
 - `action`: must emit action API/tool evidence.
@@ -121,6 +144,7 @@ Success is determined by contract validation, not only model prose quality.
 7. Output metadata is stored in `project_artifacts` for audit and retrieval.
 
 This flow is the implementation of the "virtual folder/project as execution unit" requirement:
+
 - scope is project-bounded during retrieval.
 - source and output lineage can be tracked by `project_id + run_id`.
 
@@ -135,19 +159,23 @@ This flow is the implementation of the "virtual folder/project as execution unit
 - `automations`: workflow definition (prompt, skills, schedule metadata).
 - `automation_runs`: execution history and accounting facts.
 - Current production-ready path: manual `run-now` with full accounting trail.
-- Next step: scheduler/worker loop for timed dispatch.
+- Next step: A robust scheduler/worker loop is imperative to realize true timed dispatch and fulfill the automation product promise.
 
 ## 9. Configuration Center (New)
 
 Purpose:
+
 - expose operational readiness for workflow-oriented skills.
 - provide one panel for tools, integrations, workflow readiness, and profession readiness.
+- _Architecture Note: High resilience requires bridging the gap between the Control Plane (showing "configured") and the Execution Plane (actual runtime execution), including robust circuit breaking and fallback strategies when external APIs inevitably spike or fail._
 
 Core data model:
+
 - policy source: `openclaw_tooling_manifest.json`
 - runtime panel payload: `config_center_status_panel.template.json`
 
 Panel sections:
+
 - overall summary
 - bootstrap checks
 - tool readiness
@@ -157,6 +185,7 @@ Panel sections:
 - prioritized action queue
 
 Validation loop:
+
 1. load manifest policies
 2. collect runtime status and integration checks
 3. compute blocking items
@@ -164,6 +193,7 @@ Validation loop:
 5. gate skill release by panel status
 
 Admin interaction path:
+
 1. admin opens `配置中心` in client sidebar
 2. toggles integration configured status
 3. triggers validation
@@ -184,8 +214,8 @@ Admin interaction path:
    - check policy: validate required fields and endpoint format without exposing secrets.
 6. Truth model:
    - Control Plane truth: configuration and health status are real and persisted.
-   - Execution Plane truth: workflow calls are real only after core/engine runtime binding is implemented.
-   - UI must explicitly warn when a capability is config-ready but runtime-not-bound.
+   - Execution Plane truth: OCR/ASR/TTS are runtime-bound and can be called in chat execution.
+   - Remaining tools should keep explicit warnings when config-ready but runtime-not-bound.
 7. v1 consumer boundary:
    - channel-style outbound integrations are intentionally hidden in current public version.
    - enterprise message delivery can be re-opened in later editions.

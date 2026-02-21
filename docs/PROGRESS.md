@@ -10,7 +10,16 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
 
 ## Completed (Shipped)
 
-### Phase 2 and Core UX
+### Phase 2.2: Adaptive Workspace & Session Hardening (Shipped)
+
+- **Master-Detail Project Navigation**: Delivered `ProjectsGrid -> ProjectDetail -> ChatScreen` three-tier navigation.
+- **Session Isolation Hardening**: Fixed `activeSessionId` clearing issues and cross-project state pollution.
+- **Global Draft Chat Entry**: Restored visibility for non-project sessions via the project grid.
+- **Project Detail Intermediate Layer**: Added dedicated source management and preparation screen per project.
+- **Project Deletion**: Added backend API and frontend UI for cascading project deletion.
+
+### Phase 2 and Core UX (Legacy)
+
 - Multi-session chat with SSE streaming.
 - Session history persistence (`sessions.messages`) and session detail API.
 - Stop-generation support for stream interruption.
@@ -18,6 +27,7 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
 - UI component rendering path (chart component support).
 
 ### Skills and Use Cases
+
 - Skills catalog endpoint: `GET /api/v1/client/skills`.
 - Role-task catalog endpoint: `GET /api/v1/client/use-cases`.
 - Use-case catalog is now config-driven from `server/gateway-go/config/usecases.json` (env override: `AIOC_USE_CASES_FILE`).
@@ -70,6 +80,9 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
     - per-tenant/integration 60s cache for repeated check calls
   - Admin UI upgraded to 3 panes:
     - `Tools / Integrations / Status`
+  - Admin UI further upgraded:
+    - `Help` pane added for field meaning/acquire hints (`llm.any` clarification + per-field guidance)
+    - legacy config-center fallback removed in client for tool control pages (new API only)
   - v1 consumer scope adjustment:
     - `channel.*` integrations hidden from active config center manifest
     - message/channel delivery kept out of current public version surface
@@ -82,11 +95,15 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
     - OCR/ASR/TTS runtime tool wiring completed in engine/core:
       - tools: `ocr_extract`, `asr_transcribe`, `tts_synthesize`
       - allowed tools in core are enabled by default for v1 multimodal usage
+    - runtime credential injection completed for multimodal tools:
+      - core reads tenant secrets from `integration_secrets` and decrypts via `MASTER_KEY`
+      - engine consumes request-scoped `integration_env` (with process env fallback)
   - Legacy compatibility:
     - old `config-center` manifest now also includes OCR/ASR/TTS entries
     - frontend falls back to legacy endpoints for configure/check actions when new endpoints are unavailable
 
 ### Project Sources and Artifacts
+
 - Project APIs:
   - `GET /api/v1/projects`
   - `POST /api/v1/projects`
@@ -119,6 +136,7 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
 - Core parses artifact tool results and persists metadata into `project_artifacts`.
 
 ### Security and Consistency Hardening (P0)
+
 - Session update isolation with `session_id + user_id` conditions.
 - Billing idempotency:
   - `billing_logs.request_id` unique constraint.
@@ -133,6 +151,7 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
   - stricter command validation and reduced shell-injection surface.
 
 ### Automations
+
 - Automation CRUD endpoints.
 - Run APIs:
   - `POST /api/v1/automations/:id/run`
@@ -156,16 +175,19 @@ Current gap: profession skills are still mostly **task-level placeholders** and 
 The current delivery is explicitly converged to three priorities from `readme3-important`:
 
 1. Role-packaged skills (not free-form skill picking):
+
 - Left navigation renamed to `使用场景`.
 - Scenario panel now supports role-first task selection (student/teacher/doctor/lawyer/accountant/support/ecommerce).
 - Generic capabilities are grouped into `更多`, with `添加新技能` entry.
 
 2. Local source organization by project (virtual folder):
+
 - `projects` + `project_sources` schema and APIs are live.
 - Source types supported in schema/API: `text | file | image | audio | link`.
 - Chat execution can bind `project_id` so only current project sources are used as context.
 
 3. Production outputs (deliverables, not only chat text):
+
 - Engine supports `artifact_render` + `artifact_bundle_zip`.
 - Supported generation baseline: `docx/xlsx/pdf/md/csv/json/txt` (+ zip bundle).
 - Core persists output metadata into `project_artifacts`.
@@ -180,21 +202,29 @@ The current delivery is explicitly converged to three priorities from `readme3-i
   - each role with explicit task contracts and default skill/tool policy.
 - Add artifact retrieval/download APIs from `project_artifacts` metadata.
 - Add project artifact list UI and run-level output traceability view.
-- Scheduler worker for real timed automation triggers (currently run-now/manual path is ready).
+- 补充底层异常（如配额超限、响应超时）的人性化 UI 暴露与恢复引导机制 (UX重点)。
+- Scheduler worker for real timed automation triggers (目前依然缺失，需尽快补齐以兑现自动化卖点)。
 - End-to-end migration validation on upgrade paths (older DBs to latest schema).
 - More negative/security tests: cross-user access attempts, retry/error accounting paths.
 - Production observability baseline: metrics, tracing dashboards, alert rules.
+- Expand runtime credential injection and execution verification from OCR/ASR/TTS to:
+  - `web_search`
+  - `browser`
+  - `artifact_render`
+- 设计并实现运行时的外部 API 熔断与兜底策略，弥合配置面“看起来可用”但执行面“随时可能挂掉”的体验断层 (PM重点)。
 
 ## Skills Productization Program (New)
 
 This program upgrades AIOC skills from task prompts to production workflows.
 
 ### Scope
+
 - Shift from **Task-Driven** to **Workflow-Oriented** skills.
 - Add strict contracts for `query`, `generate`, and `action` steps.
 - Add machine-checkable constraints (not only prompt wording).
 
 ### Product-Level Definition of Done
+
 - Each profession skill must define:
   - input contract
   - workflow steps
@@ -207,6 +237,7 @@ This program upgrades AIOC skills from task prompts to production workflows.
 - Action workflows must call action interfaces (notification/task creation/push), not text-only simulation.
 
 ### Tracking Milestones
+
 - M1: publish skill standard and templates (`docs/SKILL_PRODUCT_STANDARD.md`).
 - M2: migrate top 10 high-frequency profession skills to workflow contracts.
 - M3: add runtime validators for required tool-call and required artifact/action outputs.

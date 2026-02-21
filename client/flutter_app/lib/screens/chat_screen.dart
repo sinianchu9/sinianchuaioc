@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_localizations.dart';
 import '../core/theme.dart';
@@ -6,63 +6,108 @@ import '../providers/chat_provider.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/chat_input.dart';
 
-class ChatScreen extends ConsumerWidget {
-  const ChatScreen({super.key});
+class ChatScreen extends ConsumerStatefulWidget {
+  final VoidCallback? onBack;
+
+  const ChatScreen({super.key, this.onBack});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends ConsumerState<ChatScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
     final chatState = ref.watch(chatProvider);
     final session = chatState.activeSession;
     final l10n = context.l10n;
 
-    return Container(
+    session != null &&
+        session.messages.any(
+          (m) =>
+              m.toolEvents.isNotEmpty ||
+              m.component != null ||
+              m.executionSummary != null,
+        );
+
+    final bodyContent = Container(
       color: AIOCTheme.background,
       child: Column(
         children: [
-          // Top bar
           _buildTopBar(context, chatState, l10n),
-
-          // Messages
           Expanded(
-            child: session == null || session.messages.isEmpty
-                ? _buildEmptyState(ref, l10n)
-                : _buildMessageList(session.messages),
-          ),
-
-          // Error banner
-          if (chatState.error != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: AIOCTheme.error.withOpacity(0.1),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_amber,
-                    color: AIOCTheme.error,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      chatState.error!,
-                      style: const TextStyle(
-                        color: AIOCTheme.error,
-                        fontSize: 13,
+            child: Row(
+              children: [
+                // Left Panel: Chat Interface (Control Plane)
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: session == null || session.messages.isEmpty
+                            ? _buildEmptyState(ref, l10n)
+                            : _buildMessageList(session.messages),
                       ),
-                    ),
+                      if (chatState.error != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          color: AIOCTheme.error.withOpacity(0.1),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber,
+                                color: AIOCTheme.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  chatState.error!,
+                                  style: const TextStyle(
+                                    color: AIOCTheme.error,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ChatInput(
+                        onSend: (text) =>
+                            ref.read(chatProvider.notifier).sendMessage(text),
+                        onStop: () =>
+                            ref.read(chatProvider.notifier).stopGeneration(),
+                        isStreaming: chatState.isStreaming,
+                        skills: chatState.skills
+                            .map((s) => ChatInputSkill(id: s.id, name: s.name))
+                            .toList(),
+                        selectedSkillIds: chatState.selectedSkillIds,
+                        onAddSkill: (id) =>
+                            ref.read(chatProvider.notifier).addSkill(id),
+                        onRemoveSkill: (id) =>
+                            ref.read(chatProvider.notifier).removeSkill(id),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-
-          // Input
-          ChatInput(
-            onSend: (text) => ref.read(chatProvider.notifier).sendMessage(text),
-            onStop: () => ref.read(chatProvider.notifier).stopGeneration(),
-            isStreaming: chatState.isStreaming,
           ),
         ],
       ),
+    );
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AIOCTheme.background,
+      endDrawer: _buildSourcesDrawer(chatState),
+      endDrawerEnableOpenDragGesture: false,
+      body: bodyContent,
     );
   }
 
@@ -71,28 +116,22 @@ class ChatScreen extends ConsumerWidget {
     ChatState state,
     AppLocalizations l10n,
   ) {
-    final skillNames = state.skills
-        .where((s) => state.selectedSkillIds.contains(s.id))
-        .map((s) => s.name)
-        .toList();
-    final skillLabel = skillNames.isEmpty
-        ? l10n.t('generalAssistant')
-        : skillNames.join(' · ');
     final scenarioLabel = state.selectedRoleId.isEmpty
-        ? '未选择场景'
-        : '${state.selectedRoleId}/${state.selectedTaskId}';
-    final projectName = state.projects
+        ? '全局模式'
+        : '场景: ${state.selectedRoleId}';
+
+    final activeProject = state.projects
         .where((p) => p.id == state.selectedProjectId)
-        .map((p) => p.name)
-        .toList();
-    final projectLabel = state.selectedProjectId.isEmpty
-        ? '未选择项目'
-        : (projectName.isNotEmpty
-              ? projectName.first
-              : state.selectedProjectId);
+        .firstOrNull;
+    final isDraft =
+        state.selectedProjectId.isEmpty ||
+        (activeProject?.name.startsWith('Draft:') ?? false);
+    final projectLabel = isDraft
+        ? '草稿模式 (渐进式增强)'
+        : (activeProject?.name ?? state.selectedProjectId);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         color: AIOCTheme.surface,
         border: Border(
@@ -101,6 +140,32 @@ class ChatScreen extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          if (widget.onBack != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: IconButton(
+                onPressed: widget.onBack,
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                color: AIOCTheme.textSecondary,
+                tooltip: '返回工作台',
+                splashRadius: 24,
+              ),
+            ),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isDraft
+                  ? Colors.orange.withOpacity(0.1)
+                  : AIOCTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              isDraft ? Icons.edit_note_rounded : Icons.verified_rounded,
+              size: 20,
+              color: isDraft ? Colors.orange : AIOCTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
           Text(
             state.activeSession?.title ?? l10n.t('chat'),
             style: const TextStyle(
@@ -109,30 +174,49 @@ class ChatScreen extends ConsumerWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(width: 16),
+          // Tag for Draft vs Project
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: isDraft
+                  ? Colors.orange.withOpacity(0.1)
+                  : AIOCTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: isDraft
+                    ? Colors.orange.withOpacity(0.3)
+                    : AIOCTheme.primary.withOpacity(0.3),
+              ),
+            ),
+            child: Text(
+              projectLabel,
+              style: TextStyle(
+                color: isDraft ? Colors.orange : AIOCTheme.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           const Spacer(),
-          // Skill indicator
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AIOCTheme.accent.withOpacity(0.12),
+              color: AIOCTheme.surfaceLight.withOpacity(0.5),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: AIOCTheme.accent,
-                    shape: BoxShape.circle,
-                  ),
+                const Icon(
+                  Icons.psychology_alt_rounded,
+                  size: 14,
+                  color: AIOCTheme.textSecondary,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Text(
-                  skillLabel,
-                  style: TextStyle(
-                    color: AIOCTheme.accent,
+                  scenarioLabel,
+                  style: const TextStyle(
+                    color: AIOCTheme.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -140,20 +224,44 @@ class ChatScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AIOCTheme.primary.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$scenarioLabel | $projectLabel',
-              style: const TextStyle(
-                color: AIOCTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: () {
+              _scaffoldKey.currentState?.openEndDrawer();
+            },
+            tooltip: '管理本项目/草稿的资料与知识库 (${state.projectSources.length})',
+            icon: Stack(
+              children: [
+                const Icon(
+                  Icons.source_rounded,
+                  color: AIOCTheme.textSecondary,
+                ),
+                if (state.projectSources.isNotEmpty)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: AIOCTheme.accent,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 12,
+                        minHeight: 12,
+                      ),
+                      child: Text(
+                        '${state.projectSources.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -259,6 +367,145 @@ class ChatScreen extends ConsumerWidget {
       itemCount: messages.length,
       reverse: false,
       itemBuilder: (ctx, i) => MessageBubble(message: messages[i]),
+    );
+  }
+
+  Widget _buildSourcesDrawer(ChatState state) {
+    final activeProject = state.projects
+        .where((p) => p.id == state.selectedProjectId)
+        .firstOrNull;
+
+    final isDraft =
+        state.selectedProjectId.isEmpty ||
+        (activeProject?.name.startsWith('Draft:') ?? false);
+    final projectName = isDraft ? '草稿模式' : (activeProject?.name ?? '未知项目');
+
+    return Drawer(
+      backgroundColor: AIOCTheme.surface,
+      width: 320,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AIOCTheme.surfaceLight)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.source_rounded, color: AIOCTheme.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  '项目关联资料库',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AIOCTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            width: double.infinity,
+            color: AIOCTheme.surfaceLight.withOpacity(0.3),
+            child: Text(
+              '当前环境: $projectName\n此面板中的资料将被提供给 AI 大脑及可访问本地文件的技能插件 (如 OpenClaw) 作为上下文推理依据。',
+              style: const TextStyle(
+                color: AIOCTheme.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+          Expanded(
+            child: state.projectSources.isEmpty
+                ? const Center(
+                    child: Text(
+                      '目前没有任何资料关联到本对话环境。',
+                      style: TextStyle(
+                        color: AIOCTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: state.projectSources.length,
+                    itemBuilder: (context, index) {
+                      final s = state.projectSources[index];
+                      return Card(
+                        color: AIOCTheme.surfaceCard,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(
+                            s.sourceType == 'file'
+                                ? Icons.insert_drive_file_outlined
+                                : Icons.notes_outlined,
+                            color: AIOCTheme.accent,
+                          ),
+                          title: Text(
+                            s.name,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            s.sourceType,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AIOCTheme.textSecondary,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.remove_circle_outline,
+                              color: AIOCTheme.error,
+                              size: 18,
+                            ),
+                            onPressed: () async {
+                              await ref
+                                  .read(chatProvider.notifier)
+                                  .removeProjectSource(s.sourceId);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AIOCTheme.surfaceLight)),
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // Tell the user to go to the project dashboard or drag files into chat
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('请直接将文件拖拽进入聊天框，或前往大盘资料库统一添加。'),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('新增资料片段'),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestExecuteAutomationParsesSSE(t *testing.T) {
@@ -81,3 +82,29 @@ func TestTruncateForRun(t *testing.T) {
 	}
 }
 
+func TestIsDue(t *testing.T) {
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+
+	// Case 1: never run before — always due
+	if !IsDue(24, nil, now) {
+		t.Fatal("expected due when last_run_at is nil")
+	}
+
+	// Case 2: ran 23 hours ago, interval is 24h — not due yet
+	lastRun := now.Add(-23 * time.Hour)
+	if IsDue(24, &lastRun, now) {
+		t.Fatal("expected not due when only 23h have elapsed of a 24h interval")
+	}
+
+	// Case 3: ran 25 hours ago, interval is 24h — due
+	lastRun2 := now.Add(-25 * time.Hour)
+	if !IsDue(24, &lastRun2, now) {
+		t.Fatal("expected due when 25h have elapsed of a 24h interval")
+	}
+
+	// Case 4: exact boundary — ran exactly interval_hours ago
+	lastRun3 := now.Add(-24 * time.Hour)
+	if !IsDue(24, &lastRun3, now) {
+		t.Fatal("expected due at exact interval boundary")
+	}
+}

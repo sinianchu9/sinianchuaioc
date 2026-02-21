@@ -1,0 +1,80 @@
+aioc-gateway  | 2026/02/20 11:43:33 ??Connected to PostgreSQL
+aioc-gateway  | 2026/02/20 11:43:33 ??Connected to Redis
+aioc-gateway  | [GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+aioc-gateway  | 
+aioc-gateway  | [GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+aioc-gateway  |  - using env:	export GIN_MODE=release
+aioc-gateway  |  - using code:	gin.SetMode(gin.ReleaseMode)
+aioc-gateway  | 
+aioc-gateway  | [GIN-debug] GET    /api/v1/health            --> main.main.func1 (5 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/auth/login        --> github.com/aioc/gateway/handlers.(*AuthHandler).Login-fm (5 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/auth/refresh      --> github.com/aioc/gateway/handlers.(*AuthHandler).Refresh-fm (5 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/billing/summary   --> github.com/aioc/gateway/handlers.(*BillingHandler).Summary-fm (8 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/billing/verify_receipt --> github.com/aioc/gateway/handlers.(*BillingHandler).VerifyReceipt-fm (8 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/client/capabilities --> github.com/aioc/gateway/handlers.(*ClientHandler).Capabilities-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/client/skills     --> github.com/aioc/gateway/handlers.(*SkillsHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/client/use-cases  --> github.com/aioc/gateway/handlers.(*UseCaseHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/sources           --> github.com/aioc/gateway/handlers.(*SourceHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/sources           --> github.com/aioc/gateway/handlers.(*SourceHandler).Create-fm (7 handlers)
+aioc-gateway  | [GIN-debug] PUT    /api/v1/sources/:id       --> github.com/aioc/gateway/handlers.(*SourceHandler).Update-fm (7 handlers)
+aioc-gateway  | [GIN-debug] DELETE /api/v1/sources/:id       --> github.com/aioc/gateway/handlers.(*SourceHandler).Delete-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/projects          --> github.com/aioc/gateway/handlers.(*ProjectHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/projects          --> github.com/aioc/gateway/handlers.(*ProjectHandler).Create-fm (7 handlers)
+aioc-gateway  | [GIN-debug] DELETE /api/v1/projects/:id      --> github.com/aioc/gateway/handlers.(*ProjectHandler).Delete-fm (7 handlers)
+aioc-gateway  | [GIN-debug] PATCH  /api/v1/projects/:id/promote --> github.com/aioc/gateway/handlers.(*ProjectHandler).Promote-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/projects/:id/sources --> github.com/aioc/gateway/handlers.(*ProjectHandler).ListSources-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/projects/:id/sources --> github.com/aioc/gateway/handlers.(*ProjectHandler).CreateSource-fm (7 handlers)
+aioc-gateway  | [GIN-debug] DELETE /api/v1/projects/:id/sources/:source_id --> github.com/aioc/gateway/handlers.(*ProjectHandler).DeleteSource-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/sessions          --> github.com/aioc/gateway/handlers.(*SessionHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/sessions/:id      --> github.com/aioc/gateway/handlers.(*SessionHandler).Get-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/sessions          --> github.com/aioc/gateway/handlers.(*SessionHandler).Create-fm (7 handlers)
+aioc-gateway  | [GIN-debug] DELETE /api/v1/sessions/:id      --> github.com/aioc/gateway/handlers.(*SessionHandler).Delete-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/automations       --> github.com/aioc/gateway/handlers.(*AutomationHandler).List-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/automations       --> github.com/aioc/gateway/handlers.(*AutomationHandler).Create-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/automations/:id/run --> github.com/aioc/gateway/handlers.(*AutomationHandler).RunNow-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/automations/:id/runs --> github.com/aioc/gateway/handlers.(*AutomationHandler).ListRuns-fm (7 handlers)
+aioc-gateway  | [GIN-debug] PATCH  /api/v1/automations/:id/status --> github.com/aioc/gateway/handlers.(*AutomationHandler).UpdateStatus-fm (7 handlers)
+aioc-gateway  | [GIN-debug] DELETE /api/v1/automations/:id   --> github.com/aioc/gateway/handlers.(*AutomationHandler).Delete-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/config-center/manifest --> github.com/aioc/gateway/handlers.(*ConfigCenterHandler).GetManifest-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/config-center/status --> github.com/aioc/gateway/handlers.(*ConfigCenterHandler).GetStatus-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/admin/config-center/validate --> github.com/aioc/gateway/handlers.(*ConfigCenterHandler).Validate-fm (7 handlers)
+aioc-gateway  | [GIN-debug] PATCH  /api/v1/admin/config-center/integrations/:id --> github.com/aioc/gateway/handlers.(*ConfigCenterHandler).UpdateIntegration-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/tools       --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).GetTools-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/tools/:id   --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).GetToolDetail-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/admin/tools/:id/toggle --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).ToggleTool-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/integrations --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).ListIntegrations-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/integrations/:id --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).GetIntegrationDetail-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/admin/integrations/:id/secret --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).UpdateIntegrationSecret-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/admin/integrations/:id/check --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).CheckIntegration-fm (7 handlers)
+aioc-gateway  | [GIN-debug] GET    /api/v1/admin/status/summary --> github.com/aioc/gateway/handlers.(*ToolControlCenterHandler).GetStatusSummary-fm (7 handlers)
+aioc-gateway  | [GIN-debug] POST   /api/v1/chat/stream       --> main.reverseProxy.func1 (9 handlers)
+aioc-gateway  | [GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+aioc-gateway  | Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+aioc-gateway  | [GIN-debug] Listening and serving HTTP on :8080
+aioc-gateway  | 2026/02/20 11:43:33 ?? AIOC Gateway starting on :8080
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    4.257381ms |      172.18.0.1 | GET      "/api/v1/client/use-cases"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    4.433546ms |      172.18.0.1 | GET      "/api/v1/client/skills"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    5.529903ms |      172.18.0.1 | GET      "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    5.439576ms |      172.18.0.1 | GET      "/api/v1/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    5.515357ms |      172.18.0.1 | GET      "/api/v1/projects"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |    1.458414ms |      172.18.0.1 | GET      "/api/v1/sessions/d95878a1-b1a2-40a1-a1b6-436e24cb8b16"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:28 | 200 |     923.411?s |      172.18.0.1 | GET      "/api/v1/projects/f1f09cce-9ac4-4193-a7e6-bf74360d6e64/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:32 | 200 |     711.932?s |      172.18.0.1 | GET      "/api/v1/projects/ddfb4d3c-9e3f-45bf-9bde-60ed536208d7/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:32 | 200 |     807.598?s |      172.18.0.1 | GET      "/api/v1/sessions?project_id=ddfb4d3c-9e3f-45bf-9bde-60ed536208d7"
+aioc-gateway  | [GIN] 2026/02/20 - 11:45:32 | 201 |    6.268305ms |      172.18.0.1 | POST     "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:00 | 200 |  1.171165629s |      172.18.0.1 | POST     "/api/v1/chat/stream"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:26 | 200 |    1.645529ms |      172.18.0.1 | GET      "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:27 | 200 |    1.165849ms |      172.18.0.1 | GET      "/api/v1/projects/f1f09cce-9ac4-4193-a7e6-bf74360d6e64/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:27 | 200 |      490.03?s |      172.18.0.1 | GET      "/api/v1/sessions?project_id=f1f09cce-9ac4-4193-a7e6-bf74360d6e64"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:27 | 201 |    3.185506ms |      172.18.0.1 | POST     "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:46:57 | 200 |  2.834671912s |      172.18.0.1 | POST     "/api/v1/chat/stream"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:08 | 200 |     812.292?s |      172.18.0.1 | GET      "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:14 | 200 |    3.782342ms |      172.18.0.1 | DELETE   "/api/v1/projects/f1f09cce-9ac4-4193-a7e6-bf74360d6e64"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:14 | 200 |     510.914?s |      172.18.0.1 | GET      "/api/v1/projects"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:14 | 200 |     504.779?s |      172.18.0.1 | GET      "/api/v1/projects/ddfb4d3c-9e3f-45bf-9bde-60ed536208d7/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:17 | 200 |     671.881?s |      172.18.0.1 | GET      "/api/v1/projects/ddfb4d3c-9e3f-45bf-9bde-60ed536208d7/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:39 | 201 |     3.42146ms |      172.18.0.1 | POST     "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:47:51 | 200 | 11.297963321s |      172.18.0.1 | POST     "/api/v1/chat/stream"
+aioc-gateway  | [GIN] 2026/02/20 - 11:48:17 | 200 |     660.132?s |      172.18.0.1 | GET      "/api/v1/sessions"
+aioc-gateway  | [GIN] 2026/02/20 - 11:48:18 | 200 |     808.329?s |      172.18.0.1 | GET      "/api/v1/projects/ddfb4d3c-9e3f-45bf-9bde-60ed536208d7/sources"
+aioc-gateway  | [GIN] 2026/02/20 - 11:48:18 | 200 |     365.756?s |      172.18.0.1 | GET      "/api/v1/sessions?project_id=ddfb4d3c-9e3f-45bf-9bde-60ed536208d7"

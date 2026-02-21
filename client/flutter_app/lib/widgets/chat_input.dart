@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -6,16 +6,31 @@ import 'package:flutter/material.dart';
 import '../core/app_localizations.dart';
 import '../core/theme.dart';
 
+class ChatInputSkill {
+  final String id;
+  final String name;
+
+  const ChatInputSkill({required this.id, required this.name});
+}
+
 class ChatInput extends StatefulWidget {
   final Function(String) onSend;
   final VoidCallback? onStop;
   final bool isStreaming;
+  final List<ChatInputSkill> skills;
+  final List<String> selectedSkillIds;
+  final ValueChanged<String>? onAddSkill;
+  final ValueChanged<String>? onRemoveSkill;
 
   const ChatInput({
     super.key,
     required this.onSend,
     this.onStop,
     required this.isStreaming,
+    this.skills = const [],
+    this.selectedSkillIds = const [],
+    this.onAddSkill,
+    this.onRemoveSkill,
   });
 
   @override
@@ -67,6 +82,8 @@ class _ChatInputState extends State<ChatInput> {
   String? _attachedFileName;
   int? _attachedFileBytes;
   DateTime _lastSendTime = DateTime(2000);
+  String _slashQuery = '';
+  int _slashAnchor = -1;
 
   @override
   void dispose() {
@@ -87,7 +104,88 @@ class _ChatInputState extends State<ChatInput> {
     _controller.clear();
     _attachedFileName = null;
     _attachedFileBytes = null;
-    setState(() => _canSend = false);
+    setState(() {
+      _canSend = false;
+      _slashQuery = '';
+      _slashAnchor = -1;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _updateSlashState(String text) {
+    final cursor = _controller.selection.baseOffset;
+    final upto = cursor >= 0 && cursor <= text.length ? text.substring(0, cursor) : text;
+    final idx = upto.lastIndexOf('/');
+    if (idx < 0) {
+      if (_slashAnchor != -1 || _slashQuery.isNotEmpty) {
+        setState(() {
+          _slashAnchor = -1;
+          _slashQuery = '';
+        });
+      }
+      return;
+    }
+
+    if (idx > 0) {
+      final prev = upto[idx - 1];
+      if (prev.trim().isNotEmpty) {
+        if (_slashAnchor != -1 || _slashQuery.isNotEmpty) {
+          setState(() {
+            _slashAnchor = -1;
+            _slashQuery = '';
+          });
+        }
+        return;
+      }
+    }
+
+    final query = upto.substring(idx + 1);
+    if (query.contains(RegExp(r'\s'))) {
+      if (_slashAnchor != -1 || _slashQuery.isNotEmpty) {
+        setState(() {
+          _slashAnchor = -1;
+          _slashQuery = '';
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _slashAnchor = idx;
+      _slashQuery = query;
+    });
+  }
+
+  List<ChatInputSkill> _slashSuggestions() {
+    if (_slashAnchor < 0) return const [];
+    final selected = widget.selectedSkillIds.toSet();
+    final q = _slashQuery.trim().toLowerCase();
+    final candidates = widget.skills.where((s) => !selected.contains(s.id));
+    if (q.isEmpty) return candidates.take(8).toList();
+    return candidates
+        .where((s) => s.name.toLowerCase().contains(q) || s.id.toLowerCase().contains(q))
+        .take(8)
+        .toList();
+  }
+
+  void _chooseSkill(ChatInputSkill skill) {
+    widget.onAddSkill?.call(skill.id);
+    if (_slashAnchor >= 0 && _slashAnchor <= _controller.text.length) {
+      final cursor = _controller.selection.baseOffset;
+      final end = (cursor >= _slashAnchor && cursor <= _controller.text.length)
+          ? cursor
+          : _controller.text.length;
+      final before = _controller.text.substring(0, _slashAnchor);
+      final after = _controller.text.substring(end);
+      final merged = (before + after).trimLeft();
+      _controller.text = merged;
+      _controller.selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
+    }
+    setState(() {
+      _slashAnchor = -1;
+      _slashQuery = '';
+      _canSend = _controller.text.trim().isNotEmpty;
+    });
     _focusNode.requestFocus();
   }
 
@@ -207,6 +305,11 @@ class _ChatInputState extends State<ChatInput> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final selectedSkills = widget.skills
+        .where((s) => widget.selectedSkillIds.contains(s.id))
+        .toList();
+    final suggestions = _slashSuggestions();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -218,37 +321,44 @@ class _ChatInputState extends State<ChatInput> {
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (selectedSkills.isNotEmpty) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: selectedSkills
+                    .map(
+                      (s) => InputChip(
+                        label: Text(s.name, style: const TextStyle(fontSize: 12)),
+                        onDeleted: widget.isStreaming ? null : () => widget.onRemoveSkill?.call(s.id),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        backgroundColor: AIOCTheme.surfaceCard,
+                        side: BorderSide(color: AIOCTheme.surfaceLight.withOpacity(0.5)),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+            ],
             if (_attachedFileName != null) ...[
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: AIOCTheme.surfaceCard,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AIOCTheme.surfaceLight.withOpacity(0.5),
-                      ),
+                      border: Border.all(color: AIOCTheme.surfaceLight.withOpacity(0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.insert_drive_file_outlined,
-                          size: 14,
-                          color: AIOCTheme.accent,
-                        ),
+                        const Icon(Icons.insert_drive_file_outlined, size: 14, color: AIOCTheme.accent),
                         const SizedBox(width: 6),
                         Text(
                           '${_attachedFileName!} (${_attachedFileBytes ?? 0}B)',
-                          style: const TextStyle(
-                            color: AIOCTheme.textSecondary,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: AIOCTheme.textSecondary, fontSize: 12),
                         ),
                         const SizedBox(width: 6),
                         InkWell(
@@ -258,11 +368,7 @@ class _ChatInputState extends State<ChatInput> {
                               _attachedFileBytes = null;
                             });
                           },
-                          child: const Icon(
-                            Icons.close,
-                            size: 14,
-                            color: AIOCTheme.textSecondary,
-                          ),
+                          child: const Icon(Icons.close, size: 14, color: AIOCTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -270,6 +376,33 @@ class _ChatInputState extends State<ChatInput> {
                 ],
               ),
               const SizedBox(height: 8),
+            ],
+            if (suggestions.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxHeight: 220),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: AIOCTheme.surfaceCard,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AIOCTheme.surfaceLight.withOpacity(0.5)),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: suggestions.length,
+                  separatorBuilder: (_, _) => Divider(height: 1, color: AIOCTheme.surfaceLight.withOpacity(0.3)),
+                  itemBuilder: (context, index) {
+                    final s = suggestions[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.bolt_outlined, size: 16, color: AIOCTheme.accent),
+                      title: Text(s.name, style: const TextStyle(fontSize: 13, color: AIOCTheme.textPrimary)),
+                      subtitle: Text('/${s.id}', style: const TextStyle(fontSize: 11, color: AIOCTheme.textSecondary)),
+                      onTap: widget.isStreaming ? null : () => _chooseSkill(s),
+                    );
+                  },
+                ),
+              ),
             ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -281,25 +414,16 @@ class _ChatInputState extends State<ChatInput> {
                     color: AIOCTheme.surfaceCard,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: (widget.isStreaming || _isPickingFile)
-                          ? null
-                          : _pickFile,
+                      onTap: (widget.isStreaming || _isPickingFile) ? null : _pickFile,
                       borderRadius: BorderRadius.circular(12),
                       child: Center(
                         child: _isPickingFile
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AIOCTheme.accent,
-                                ),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AIOCTheme.accent),
                               )
-                            : const Icon(
-                                Icons.attach_file_rounded,
-                                size: 20,
-                                color: AIOCTheme.textSecondary,
-                              ),
+                            : const Icon(Icons.attach_file_rounded, size: 20, color: AIOCTheme.textSecondary),
                       ),
                     ),
                   ),
@@ -322,21 +446,16 @@ class _ChatInputState extends State<ChatInput> {
                       focusNode: _focusNode,
                       maxLines: 6,
                       minLines: 1,
-                      style: const TextStyle(
-                        color: AIOCTheme.textPrimary,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(color: AIOCTheme.textPrimary, fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: l10n.t('typeOrAttach'),
+                        hintText: '${l10n.t('typeOrAttach')}  (输入 / 选择技能)',
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       textInputAction: TextInputAction.newline,
                       onChanged: (text) {
                         final canSend = text.trim().isNotEmpty;
+                        _updateSlashState(text);
                         if (canSend != _canSend) {
                           setState(() => _canSend = canSend);
                         }
@@ -352,36 +471,24 @@ class _ChatInputState extends State<ChatInput> {
                   height: 44,
                   decoration: BoxDecoration(
                     gradient: _canSend && !widget.isStreaming
-                        ? const LinearGradient(
-                            colors: [AIOCTheme.primary, AIOCTheme.accent],
-                          )
+                        ? const LinearGradient(colors: [AIOCTheme.primary, AIOCTheme.accent])
                         : null,
-                    color: _canSend && !widget.isStreaming
-                        ? null
-                        : AIOCTheme.surfaceCard,
+                    color: _canSend && !widget.isStreaming ? null : AIOCTheme.surfaceCard,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: widget.isStreaming
-                          ? widget.onStop
-                          : (_canSend ? _send : null),
+                      onTap: widget.isStreaming ? widget.onStop : (_canSend ? _send : null),
                       borderRadius: BorderRadius.circular(12),
                       child: widget.isStreaming
                           ? const Center(
-                              child: Icon(
-                                Icons.stop_rounded,
-                                size: 28,
-                                color: AIOCTheme.error,
-                              ),
+                              child: Icon(Icons.stop_rounded, size: 28, color: AIOCTheme.error),
                             )
                           : Icon(
                               Icons.send_rounded,
                               size: 20,
-                              color: _canSend
-                                  ? Colors.white
-                                  : AIOCTheme.textSecondary,
+                              color: _canSend ? Colors.white : AIOCTheme.textSecondary,
                             ),
                     ),
                   ),

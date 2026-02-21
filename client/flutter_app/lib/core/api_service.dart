@@ -184,10 +184,13 @@ class ApiService {
 
   // ==================== Sessions ====================
 
-  Future<ApiResponse> getSessions() async {
+  Future<ApiResponse> getSessions({String? projectId}) async {
     try {
+      final query = (projectId != null && projectId.isNotEmpty)
+          ? '?project_id=$projectId'
+          : '';
       final resp = await http
-          .get(Uri.parse('$baseUrl/sessions'), headers: _headers)
+          .get(Uri.parse('$baseUrl/sessions$query'), headers: _headers)
           .timeout(const Duration(seconds: 10));
       return _handleResponse(resp);
     } catch (e) {
@@ -209,13 +212,20 @@ class ApiService {
   Future<ApiResponse> createSession({
     String title = 'New Chat',
     String mode = 'economy',
+    String? projectId,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'title': title,
+        'model_mode': mode,
+        if (projectId != null && projectId.isNotEmpty) 'project_id': projectId,
+      };
+
       final resp = await http
           .post(
             Uri.parse('$baseUrl/sessions'),
             headers: _headers,
-            body: jsonEncode({'title': title, 'model_mode': mode}),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
       return _handleResponse(resp);
@@ -304,6 +314,7 @@ class ApiService {
   Future<ApiResponse> createProject({
     required String name,
     String description = '',
+    bool isTemporary = false,
   }) async {
     try {
       final resp = await _requestWithFallback(
@@ -311,8 +322,25 @@ class ApiService {
             .post(
               Uri.parse('$base/projects'),
               headers: _headers,
-              body: jsonEncode({'name': name, 'description': description}),
+              body: jsonEncode({
+                'name': name,
+                'description': description,
+                'is_temporary': isTemporary,
+              }),
             )
+            .timeout(const Duration(seconds: 10)),
+      );
+      return _handleResponse(resp);
+    } catch (e) {
+      return ApiResponse(code: 0, msg: e.toString());
+    }
+  }
+
+  Future<ApiResponse> deleteProject(String projectId) async {
+    try {
+      final resp = await _requestWithFallback(
+        (base) => http
+            .delete(Uri.parse('$base/projects/$projectId'), headers: _headers)
             .timeout(const Duration(seconds: 10)),
       );
       return _handleResponse(resp);
@@ -583,7 +611,10 @@ class ApiService {
     try {
       final resp = await _requestWithFallback(
         (base) => http
-            .get(Uri.parse('$base/admin/config-center/status'), headers: _headers)
+            .get(
+              Uri.parse('$base/admin/config-center/status'),
+              headers: _headers,
+            )
             .timeout(const Duration(seconds: 15)),
       );
       return _handleResponse(resp);
@@ -596,7 +627,10 @@ class ApiService {
     try {
       final resp = await _requestWithFallback(
         (base) => http
-            .post(Uri.parse('$base/admin/config-center/validate'), headers: _headers)
+            .post(
+              Uri.parse('$base/admin/config-center/validate'),
+              headers: _headers,
+            )
             .timeout(const Duration(seconds: 20)),
       );
       return _handleResponse(resp);
@@ -615,7 +649,9 @@ class ApiService {
       final resp = await _requestWithFallback(
         (base) => http
             .patch(
-              Uri.parse('$base/admin/config-center/integrations/$integrationId'),
+              Uri.parse(
+                '$base/admin/config-center/integrations/$integrationId',
+              ),
               headers: _headers,
               body: jsonEncode({
                 'configured': configured,
@@ -640,34 +676,7 @@ class ApiService {
             .get(Uri.parse('$base/admin/tools'), headers: _headers)
             .timeout(const Duration(seconds: 15)),
       );
-      final parsed = _handleResponse(resp);
-      if (parsed.isSuccess) return parsed;
-
-      final legacy = await _getLegacyConfigCenterStatus();
-      if (!legacy.isSuccess || legacy.data is! Map) {
-        return parsed;
-      }
-      final data = Map<String, dynamic>.from(legacy.data as Map);
-      final legacyTools = _asMapList(data['tool_status']);
-      final mapped = legacyTools
-          .map(
-            (t) => <String, dynamic>{
-              'id': (t['tool_id'] ?? '').toString(),
-              'name': (t['tool_id'] ?? '').toString(),
-              'category': (t['category'] ?? '').toString(),
-              'description': (t['notes'] ?? '').toString(),
-              'risk_level': '',
-              'is_enabled': t['enabled'] == true,
-              'status': _mapLegacyToolStatus(t),
-              'missing_integrations': _toStringList(t['missing_integrations']),
-              'missing_binaries': _toStringList(t['missing_dependencies']),
-              'last_check_at': '',
-              'last_error_code': '',
-              'last_error_message': (t['notes'] ?? '').toString(),
-            },
-          )
-          .toList();
-      return ApiResponse(code: 1, msg: 'ok (legacy fallback)', data: {'tools': mapped});
+      return _handleResponse(resp);
     } catch (e) {
       return ApiResponse(code: 0, msg: e.toString());
     }
@@ -713,42 +722,7 @@ class ApiService {
             .get(Uri.parse('$base/admin/integrations'), headers: _headers)
             .timeout(const Duration(seconds: 15)),
       );
-      final parsed = _handleResponse(resp);
-      if (parsed.isSuccess) return parsed;
-
-      final legacy = await _getLegacyConfigCenterStatus();
-      if (!legacy.isSuccess || legacy.data is! Map) {
-        return parsed;
-      }
-      final data = Map<String, dynamic>.from(legacy.data as Map);
-      final legacyIntegrations = _asMapList(data['integration_status']);
-      final mapped = legacyIntegrations
-          .map(
-            (i) => <String, dynamic>{
-              'id': (i['integration_id'] ?? '').toString(),
-              'type': '',
-              'display_name': (i['integration_id'] ?? '').toString(),
-              'category': (i['category'] ?? '').toString(),
-              'description': (i['notes'] ?? '').toString(),
-              'required_fields': _toStringList(i['required_fields']),
-              'optional_fields': const <String>[],
-              'missing_fields': _toStringList(i['missing_fields']),
-              'is_enabled': true,
-              'status': _mapLegacyStatus((i['status'] ?? '').toString()),
-              'last_check_at': (i['last_validated_at'] ?? '').toString(),
-              'last_error_code': '',
-              'last_error_message': (i['notes'] ?? '').toString(),
-              'mandatory': i['mandatory'] == true,
-              'check_type': '',
-              'configured': i['configured'] == true,
-            },
-          )
-          .toList();
-      return ApiResponse(
-        code: 1,
-        msg: 'ok (legacy fallback)',
-        data: {'integrations': mapped},
-      );
+      return _handleResponse(resp);
     } catch (e) {
       return ApiResponse(code: 0, msg: e.toString());
     }
@@ -761,63 +735,7 @@ class ApiService {
             .get(Uri.parse('$base/admin/status/summary'), headers: _headers)
             .timeout(const Duration(seconds: 15)),
       );
-      final parsed = _handleResponse(resp);
-      if (parsed.isSuccess) return parsed;
-
-      final legacy = await _getLegacyConfigCenterStatus();
-      if (!legacy.isSuccess || legacy.data is! Map) {
-        return parsed;
-      }
-      final data = Map<String, dynamic>.from(legacy.data as Map);
-      final summary = _toMap(data['summary']);
-      final counts = _toMap(summary['counts']);
-      final legacyTools = _asMapList(data['tool_status']);
-      final legacyIntegrations = _asMapList(data['integration_status']);
-
-      final issues = <Map<String, dynamic>>[];
-      for (final t in legacyTools) {
-        final s = _mapLegacyStatus((t['status'] ?? '').toString());
-        if (s == 'OK') continue;
-        issues.add({
-          'kind': 'tool',
-          'id': (t['tool_id'] ?? '').toString(),
-          'name': (t['tool_id'] ?? '').toString(),
-          'category': (t['category'] ?? '').toString(),
-          'status': s,
-          'last_error_code': '',
-          'last_error_message': (t['notes'] ?? '').toString(),
-        });
-      }
-      for (final i in legacyIntegrations) {
-        final s = _mapLegacyStatus((i['status'] ?? '').toString());
-        if (s == 'OK') continue;
-        issues.add({
-          'kind': 'integration',
-          'id': (i['integration_id'] ?? '').toString(),
-          'name': (i['integration_id'] ?? '').toString(),
-          'category': (i['category'] ?? '').toString(),
-          'status': s,
-          'last_error_code': '',
-          'last_error_message': (i['notes'] ?? '').toString(),
-          'missing_fields': _toStringList(i['missing_fields']),
-        });
-      }
-
-      return ApiResponse(
-        code: 1,
-        msg: 'ok (legacy fallback)',
-        data: {
-          'summary': {
-            'ok': (counts['tools_ready'] ?? 0) + (counts['integrations_ready'] ?? 0),
-            'warn': counts['tools_blocked'] ?? 0,
-            'error': counts['mandatory_missing'] ?? 0,
-            'disabled': 0,
-            'missing_credentials': counts['integrations_missing'] ?? 0,
-            'misconfigured': 0,
-          },
-          'issues': issues,
-        },
-      );
+      return _handleResponse(resp);
     } catch (e) {
       return ApiResponse(code: 0, msg: e.toString());
     }
@@ -846,34 +764,7 @@ class ApiService {
             )
             .timeout(const Duration(seconds: 20)),
       );
-      final parsed = _handleResponse(resp);
-      if (parsed.isSuccess) return parsed;
-
-      // Legacy fallback: mark integration configured and clear missing fields.
-      final legacyResp = await _requestWithFallback(
-        (base) => http
-            .patch(
-              Uri.parse('$base/admin/config-center/integrations/$integrationId'),
-              headers: _headers,
-              body: jsonEncode({
-                'configured': true,
-                'missing_fields': <String>[],
-                'notes':
-                    'configured via legacy fallback; secret stored externally or pending migration',
-              }),
-            )
-            .timeout(const Duration(seconds: 20)),
-      );
-      final legacyParsed = _handleResponse(legacyResp);
-      if (!legacyParsed.isSuccess) return parsed;
-
-      // Trigger legacy revalidation so status panel can refresh blockers.
-      await validateConfigCenter();
-      return ApiResponse(
-        code: 1,
-        msg: 'ok (legacy fallback)',
-        data: legacyParsed.data,
-      );
+      return _handleResponse(resp);
     } catch (e) {
       return ApiResponse(code: 0, msg: e.toString());
     }
@@ -889,66 +780,10 @@ class ApiService {
             )
             .timeout(const Duration(seconds: 20)),
       );
-      final parsed = _handleResponse(resp);
-      if (parsed.isSuccess) return parsed;
-
-      // Legacy fallback only supports full validate.
-      final legacy = await validateConfigCenter();
-      if (!legacy.isSuccess) return parsed;
-      return ApiResponse(
-        code: 1,
-        msg: 'checked via legacy validate',
-        data: {'integration_id': integrationId, 'status': 'WARN', 'cached': false},
-      );
+      return _handleResponse(resp);
     } catch (e) {
       return ApiResponse(code: 0, msg: e.toString());
     }
-  }
-
-  Future<ApiResponse> _getLegacyConfigCenterStatus() async {
-    final resp = await _requestWithFallback(
-      (base) => http
-          .get(Uri.parse('$base/admin/config-center/status'), headers: _headers)
-          .timeout(const Duration(seconds: 15)),
-    );
-    return _handleResponse(resp);
-  }
-
-  static Map<String, dynamic> _toMap(dynamic v) {
-    if (v is Map<String, dynamic>) return v;
-    if (v is Map) return Map<String, dynamic>.from(v);
-    return <String, dynamic>{};
-  }
-
-  static List<Map<String, dynamic>> _asMapList(dynamic v) {
-    if (v is! List) return const <Map<String, dynamic>>[];
-    return v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-  }
-
-  static List<String> _toStringList(dynamic v) {
-    if (v is! List) return const <String>[];
-    return v.map((e) => e.toString()).toList();
-  }
-
-  static String _mapLegacyStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'ok':
-        return 'OK';
-      case 'blocked':
-        return 'MISSING_CREDENTIALS';
-      case 'warn':
-        return 'WARN';
-      case 'unknown':
-        return 'WARN';
-      default:
-        return 'WARN';
-    }
-  }
-
-  static String _mapLegacyToolStatus(Map<String, dynamic> row) {
-    final deps = _toStringList(row['missing_dependencies']);
-    if (deps.isNotEmpty) return 'MISCONFIGURED';
-    return _mapLegacyStatus((row['status'] ?? '').toString());
   }
 
   // ==================== Health ====================

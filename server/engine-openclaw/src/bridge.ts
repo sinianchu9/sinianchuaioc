@@ -46,6 +46,7 @@ export interface AgentRequest {
   tenant_id: string;
   user_id: string;
   client_id?: string;
+  integration_env?: Record<string, string>;
 }
 
 export interface EngineEvent {
@@ -419,12 +420,21 @@ async function toolSourceLookup(req: AgentRequest, toolArgs: any): Promise<strin
   }
 }
 
-function readIntegrationEnv(prefix: "OCR" | "ASR" | "TTS"): { baseURL: string; token: string; model: string; voice: string } {
+function readIntegrationEnv(
+  req: AgentRequest,
+  prefix: "OCR" | "ASR" | "TTS",
+): { baseURL: string; token: string; model: string; voice: string } {
+  const kv = req.integration_env || {};
+  const pick = (key: string): string => {
+    const fromReq = String(kv[key] || "").trim();
+    if (fromReq) return fromReq;
+    return String(process.env[key] || "").trim();
+  };
   return {
-    baseURL: String(process.env[`${prefix}_API_BASE_URL`] || "").trim(),
-    token: String(process.env[`${prefix}_API_TOKEN`] || "").trim(),
-    model: String(process.env[`${prefix}_MODEL`] || "").trim(),
-    voice: String(process.env[`${prefix}_VOICE`] || "").trim(),
+    baseURL: pick(`${prefix}_API_BASE_URL`),
+    token: pick(`${prefix}_API_TOKEN`),
+    model: pick(`${prefix}_MODEL`),
+    voice: pick(`${prefix}_VOICE`),
   };
 }
 
@@ -437,12 +447,15 @@ async function httpJSON(url: string, token: string, payload: any): Promise<any> 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const resp = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify(payload || {}),
       signal: controller.signal,
     });
@@ -463,10 +476,51 @@ async function httpJSON(url: string, token: string, payload: any): Promise<any> 
   }
 }
 
+async function httpMultipartFile(
+  url: string,
+  token: string,
+  fieldName: string,
+  filePath: string,
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const fileBytes = await fs.readFile(filePath);
+    const form = new FormData();
+    form.append(fieldName, new Blob([fileBytes]), path.basename(filePath));
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+    const text = await resp.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text };
+    }
+    if (!resp.ok) {
+      const msg = typeof data?.message === "string" ? data.message : `http ${resp.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function toolOCRExtract(req: AgentRequest, toolArgs: any): Promise<string> {
-  const env = readIntegrationEnv("OCR");
-  if (!env.baseURL || !env.token) {
-    throw new Error("OCR not configured. Set OCR_API_BASE_URL and OCR_API_TOKEN in engine environment.");
+  const env = readIntegrationEnv(req, "OCR");
+  if (!env.baseURL) {
+    throw new Error("OCR not configured. Set OCR_API_BASE_URL in config center or engine environment.");
   }
 
   const sourceID = String(toolArgs?.source_id || "").trim();
@@ -478,13 +532,18 @@ async function toolOCRExtract(req: AgentRequest, toolArgs: any): Promise<string>
   }
 
   const endpoint = `${env.baseURL.replace(/\/$/, "")}/ocr`;
-  const payload = {
-    image_path: imagePath || undefined,
-    image_url: imageURL || undefined,
-    language: String(toolArgs?.language || "").trim() || undefined,
-    model: env.model || undefined,
-  };
-  const data = await httpJSON(endpoint, env.token, payload);
+  let data: any;
+  if (imagePath) {
+    // Compatible with providers that require multipart/form-data (field name: file).
+    data = await httpMultipartFile(endpoint, env.token, "file", imagePath);
+  } else {
+    const payload = {
+      image_url: imageURL || undefined,
+      language: String(toolArgs?.language || "").trim() || undefined,
+      model: env.model || undefined,
+    };
+    data = await httpJSON(endpoint, env.token, payload);
+  }
   const text = String(data?.text || data?.result?.text || "").trim();
   return JSON.stringify({
     text,
@@ -495,7 +554,7 @@ async function toolOCRExtract(req: AgentRequest, toolArgs: any): Promise<string>
 }
 
 async function toolASRTranscribe(req: AgentRequest, toolArgs: any): Promise<string> {
-  const env = readIntegrationEnv("ASR");
+  const env = readIntegrationEnv(req, "ASR");
   if (!env.baseURL || !env.token) {
     throw new Error("ASR not configured. Set ASR_API_BASE_URL and ASR_API_TOKEN in engine environment.");
   }
@@ -526,9 +585,9 @@ async function toolASRTranscribe(req: AgentRequest, toolArgs: any): Promise<stri
 }
 
 async function toolTTSSynthesize(req: AgentRequest, toolArgs: any): Promise<string> {
-  const env = readIntegrationEnv("TTS");
-  if (!env.baseURL || !env.token) {
-    throw new Error("TTS not configured. Set TTS_API_BASE_URL and TTS_API_TOKEN in engine environment.");
+  const env = readIntegrationEnv(req, "TTS");
+  if (!env.baseURL) {
+    throw new Error("TTS not configured. Set TTS_API_BASE_URL in config center or engine environment.");
   }
   const text = String(toolArgs?.text || "").trim();
   if (!text) {
@@ -540,12 +599,50 @@ async function toolTTSSynthesize(req: AgentRequest, toolArgs: any): Promise<stri
   const dir = artifactRoot(req, projectID);
   await ensureDir(dir);
 
-  const endpoint = `${env.baseURL.replace(/\/$/, "")}/tts/synthesize`;
-  const payload = { text, format, voice: voice || undefined, model: env.model || undefined };
-  const data = await httpJSON(endpoint, env.token, payload);
+  let data: any = {};
+  let audioPath = "";
+  let audioURL = "";
 
-  let audioPath = String(data?.audio_path || "").trim();
-  const audioURL = String(data?.audio_url || "").trim();
+  // First: try GET /tts?text=... (compatible with your provider format).
+  try {
+    const params = new URLSearchParams();
+    params.set("text", text);
+    if (voice) params.set("voice", voice);
+    const ttsGetEndpoint = `${env.baseURL.replace(/\/$/, "")}/tts?${params.toString()}`;
+    const headers: Record<string, string> = {};
+    if (env.token) headers.Authorization = `Bearer ${env.token}`;
+    const resp = await fetch(ttsGetEndpoint, { method: "GET", headers });
+    if (resp.ok) {
+      const ct = (resp.headers.get("content-type") || "").toLowerCase();
+      if (ct.includes("audio") || ct.includes("octet-stream")) {
+        const out = path.join(dir, sanitizeName(`tts-${Date.now()}.${format}`));
+        const arr = new Uint8Array(await resp.arrayBuffer());
+        await fs.writeFile(out, Buffer.from(arr));
+        audioPath = out;
+      } else {
+        const txt = await resp.text();
+        try {
+          data = txt ? JSON.parse(txt) : {};
+        } catch {
+          data = {};
+        }
+      }
+    }
+  } catch {
+    // Continue to POST fallback.
+  }
+
+  // Fallback: POST /tts/synthesize JSON payload.
+  if (!audioPath) {
+    const endpoint = `${env.baseURL.replace(/\/$/, "")}/tts/synthesize`;
+    const payload = { text, format, voice: voice || undefined, model: env.model || undefined };
+    data = await httpJSON(endpoint, env.token, payload);
+  }
+
+  if (!audioPath) {
+    audioPath = String(data?.audio_path || "").trim();
+  }
+  audioURL = String(data?.audio_url || "").trim();
   const audioB64 = String(data?.audio_base64 || "").trim();
 
   if (!audioPath && audioB64) {

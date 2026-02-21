@@ -9,6 +9,7 @@ import (
 	"github.com/aioc/gateway/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,15 +27,31 @@ func NewSessionHandler(db *pgxpool.Pool) *SessionHandler {
 func (h *SessionHandler) List(c *gin.Context) {
 	traceID := c.GetString("trace_id")
 	userID := c.GetString("user_id")
+	projectID := c.Query("project_id")
 
-	rows, err := h.db.Query(context.Background(),
-		`SELECT session_id, title, model_mode, token_count, created_at, updated_at
-		 FROM sessions
-		 WHERE user_id = $1
-		 ORDER BY updated_at DESC
-		 LIMIT 100`,
-		userID,
-	)
+	var rows pgx.Rows
+	var err error
+
+	if projectID != "" {
+		rows, err = h.db.Query(context.Background(),
+			`SELECT session_id, title, model_mode, token_count, created_at, updated_at
+			 FROM sessions
+			 WHERE user_id = $1 AND project_id = $2
+			 ORDER BY updated_at DESC
+			 LIMIT 100`,
+			userID, projectID,
+		)
+	} else {
+		rows, err = h.db.Query(context.Background(),
+			`SELECT session_id, title, model_mode, token_count, created_at, updated_at
+			 FROM sessions
+			 WHERE user_id = $1 AND project_id IS NULL
+			 ORDER BY updated_at DESC
+			 LIMIT 100`,
+			userID,
+		)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Code:    0,
@@ -79,6 +96,7 @@ func (h *SessionHandler) Create(c *gin.Context) {
 	type CreateReq struct {
 		Title     string `json:"title"`
 		ModelMode string `json:"model_mode"`
+		ProjectID string `json:"project_id"`
 	}
 
 	var req CreateReq
@@ -95,11 +113,46 @@ func (h *SessionHandler) Create(c *gin.Context) {
 	}
 
 	sessionID := uuid.New()
-	_, err := h.db.Exec(context.Background(),
-		`INSERT INTO sessions (session_id, user_id, title, model_mode)
-		 VALUES ($1, $2, $3, $4)`,
-		sessionID, userID, req.Title, req.ModelMode,
-	)
+	var err error
+
+	if req.ProjectID != "" {
+		var exists int
+		checkErr := h.db.QueryRow(context.Background(),
+			`SELECT 1
+			   FROM projects
+			  WHERE project_id = $1 AND user_id = $2 AND status = 'active'
+			  LIMIT 1`,
+			req.ProjectID, userID,
+		).Scan(&exists)
+		if checkErr == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, models.APIResponse{
+				Code:    0,
+				Msg:     "project not found",
+				TraceID: traceID,
+			})
+			return
+		}
+		if checkErr != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{
+				Code:    0,
+				Msg:     "failed to validate project",
+				TraceID: traceID,
+			})
+			return
+		}
+
+		_, err = h.db.Exec(context.Background(),
+			`INSERT INTO sessions (session_id, user_id, project_id, title, model_mode)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			sessionID, userID, req.ProjectID, req.Title, req.ModelMode,
+		)
+	} else {
+		_, err = h.db.Exec(context.Background(),
+			`INSERT INTO sessions (session_id, user_id, title, model_mode)
+			 VALUES ($1, $2, $3, $4)`,
+			sessionID, userID, req.Title, req.ModelMode,
+		)
+	}
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{

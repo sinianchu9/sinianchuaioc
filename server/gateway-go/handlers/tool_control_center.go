@@ -73,16 +73,26 @@ type toolDependencyRule struct {
 }
 
 type integrationManifestItem struct {
-	ID             string   `yaml:"id"`
-	Type           string   `yaml:"type"`
-	DisplayName    string   `yaml:"display_name"`
-	Category       string   `yaml:"category"`
-	Description    string   `yaml:"description"`
-	RequiredFields []string `yaml:"required_fields"`
-	OptionalFields []string `yaml:"optional_fields"`
-	CheckType      string   `yaml:"check_type"`
-	DefaultEnabled bool     `yaml:"default_enabled"`
-	Mandatory      bool     `yaml:"mandatory"`
+	ID             string                 `yaml:"id"`
+	Type           string                 `yaml:"type"`
+	DisplayName    string                 `yaml:"display_name"`
+	Category       string                 `yaml:"category"`
+	Description    string                 `yaml:"description"`
+	RequiredFields []string               `yaml:"required_fields"`
+	OptionalFields []string               `yaml:"optional_fields"`
+	FieldSpecs     []integrationFieldSpec `yaml:"field_specs"`
+	CheckType      string                 `yaml:"check_type"`
+	DefaultEnabled bool                   `yaml:"default_enabled"`
+	Mandatory      bool                   `yaml:"mandatory"`
+}
+
+type integrationFieldSpec struct {
+	Name        string `yaml:"name"`
+	Label       string `yaml:"label"`
+	Description string `yaml:"description"`
+	AcquireHint string `yaml:"acquire_hint"`
+	Example     string `yaml:"example"`
+	Sensitive   bool   `yaml:"sensitive"`
 }
 
 type integrationRow struct {
@@ -167,7 +177,7 @@ CREATE TABLE IF NOT EXISTS integrations (
 	created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	PRIMARY KEY (tenant_id, id)
-+)`)
+)`)
 	_, _ = h.db.Exec(context.Background(), `
 CREATE TABLE IF NOT EXISTS integration_secrets (
 	integration_id     VARCHAR(128) NOT NULL,
@@ -179,7 +189,7 @@ CREATE TABLE IF NOT EXISTS integration_secrets (
 	rotated_by         UUID REFERENCES users(user_id),
 	PRIMARY KEY (tenant_id, integration_id, secret_key_name),
 	FOREIGN KEY (tenant_id, integration_id) REFERENCES integrations(tenant_id, id) ON DELETE CASCADE
-+)`)
+)`)
 	_, _ = h.db.Exec(context.Background(), `
 CREATE TABLE IF NOT EXISTS tool_status (
 	tool_id             VARCHAR(128) NOT NULL,
@@ -194,7 +204,7 @@ CREATE TABLE IF NOT EXISTS tool_status (
 	created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	PRIMARY KEY (tenant_id, tool_id)
-+)`)
+)`)
 }
 
 func (h *ToolControlCenterHandler) GetTools(c *gin.Context) {
@@ -228,6 +238,7 @@ func (h *ToolControlCenterHandler) GetTools(c *gin.Context) {
 
 	items := make([]map[string]any, 0, len(toolStates))
 	for _, ts := range toolStates {
+		dep := h.resolveToolDependencies(manifest, ts.Manifest.ID)
 		items = append(items, map[string]any{
 			"id":                   ts.Manifest.ID,
 			"name":                 ts.Manifest.Name,
@@ -241,10 +252,20 @@ func (h *ToolControlCenterHandler) GetTools(c *gin.Context) {
 			"last_check_at":        ts.LastCheckAtISO,
 			"last_error_code":      ts.LastErrorCode,
 			"last_error_message":   ts.LastErrorMessage,
+			"dependencies": map[string]any{
+				"all_of_integrations": dep.AllOfIntegrations,
+				"any_of_integrations": dep.AnyOfIntegrations,
+				"binaries":            dep.Binaries,
+			},
 		})
 	}
 
-	c.JSON(http.StatusOK, models.APIResponse{Code: 1, Msg: "ok", Data: map[string]any{"tools": items}, TraceID: traceID})
+	c.JSON(http.StatusOK, models.APIResponse{Code: 1, Msg: "ok", Data: map[string]any{
+		"tools":                        items,
+		"manifest_path":                h.manifestPath,
+		"registered_tool_count":        len(manifest.Tools),
+		"registered_integration_count": len(manifest.Integrations),
+	}, TraceID: traceID})
 }
 func (h *ToolControlCenterHandler) GetToolDetail(c *gin.Context) {
 	tenantID, userID, ok := getTenantAndUser(c)
@@ -401,6 +422,7 @@ func (h *ToolControlCenterHandler) ListIntegrations(c *gin.Context) {
 			"description":        st.Manifest.Description,
 			"required_fields":    st.Manifest.RequiredFields,
 			"optional_fields":    st.Manifest.OptionalFields,
+			"field_specs":        normalizeFieldSpecs(st.Manifest),
 			"missing_fields":     st.MissingFields,
 			"is_enabled":         st.Row.IsEnabled,
 			"status":             st.Row.Status,
@@ -461,6 +483,7 @@ func (h *ToolControlCenterHandler) GetIntegrationDetail(c *gin.Context) {
 			"description":        st.Manifest.Description,
 			"required_fields":    st.Manifest.RequiredFields,
 			"optional_fields":    st.Manifest.OptionalFields,
+			"field_specs":        normalizeFieldSpecs(st.Manifest),
 			"missing_fields":     st.MissingFields,
 			"is_enabled":         st.Row.IsEnabled,
 			"status":             st.Row.Status,
@@ -1097,6 +1120,57 @@ func findManifestIntegration(m toolManifest, integrationID string) (integrationM
 	return integrationManifestItem{}, false
 }
 
+func normalizeFieldSpecs(it integrationManifestItem) []map[string]any {
+	known := map[string]integrationFieldSpec{}
+	for _, fs := range it.FieldSpecs {
+		name := strings.TrimSpace(fs.Name)
+		if name == "" {
+			continue
+		}
+		known[name] = fs
+	}
+	ordered := make([]map[string]any, 0, len(it.RequiredFields)+len(it.OptionalFields))
+	build := func(name string, required bool) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		fs, ok := known[name]
+		if !ok {
+			fs = integrationFieldSpec{
+				Name:        name,
+				Label:       name,
+				Description: "配置项",
+				AcquireHint: "请从该服务提供商控制台获取并填入",
+				Sensitive:   true,
+			}
+		}
+		label := strings.TrimSpace(fs.Label)
+		if label == "" {
+			label = name
+		}
+		ordered = append(ordered, map[string]any{
+			"name":         name,
+			"label":        label,
+			"description":  strings.TrimSpace(fs.Description),
+			"acquire_hint": strings.TrimSpace(fs.AcquireHint),
+			"example":      strings.TrimSpace(fs.Example),
+			"sensitive":    fs.Sensitive,
+			"required":     required,
+		})
+	}
+	for _, name := range it.RequiredFields {
+		build(name, true)
+	}
+	for _, name := range it.OptionalFields {
+		if containsString(it.RequiredFields, name) {
+			continue
+		}
+		build(name, false)
+	}
+	return ordered
+}
+
 func missingBinaries(bins []string) []string {
 	miss := make([]string, 0)
 	for _, b := range bins {
@@ -1299,9 +1373,8 @@ func runIntegrationHealthCheck(manifest integrationManifestItem, secrets map[str
 		return statusOK, "", ""
 	case "ocr_api":
 		baseURL := strings.TrimSpace(secrets["OCR_API_BASE_URL"])
-		token := strings.TrimSpace(secrets["OCR_API_TOKEN"])
-		if baseURL == "" || token == "" {
-			return statusMissingCredentials, "MISSING_OCR_API_FIELDS", "required fields missing"
+		if baseURL == "" {
+			return statusMissingCredentials, "MISSING_OCR_API_BASE_URL", "required field missing"
 		}
 		if !(strings.HasPrefix(baseURL, "http://") || strings.HasPrefix(baseURL, "https://")) {
 			return statusMisconfigured, "INVALID_OCR_API_BASE_URL", "ocr api base url invalid"
@@ -1319,9 +1392,8 @@ func runIntegrationHealthCheck(manifest integrationManifestItem, secrets map[str
 		return statusOK, "", ""
 	case "tts_api":
 		baseURL := strings.TrimSpace(secrets["TTS_API_BASE_URL"])
-		token := strings.TrimSpace(secrets["TTS_API_TOKEN"])
-		if baseURL == "" || token == "" {
-			return statusMissingCredentials, "MISSING_TTS_API_FIELDS", "required fields missing"
+		if baseURL == "" {
+			return statusMissingCredentials, "MISSING_TTS_API_BASE_URL", "required field missing"
 		}
 		if !(strings.HasPrefix(baseURL, "http://") || strings.HasPrefix(baseURL, "https://")) {
 			return statusMisconfigured, "INVALID_TTS_API_BASE_URL", "tts api base url invalid"

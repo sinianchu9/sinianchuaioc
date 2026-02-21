@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,7 +9,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/aioc/gateway/config"
 	"github.com/aioc/gateway/db"
@@ -133,6 +136,8 @@ func main() {
 		{
 			projects.GET("", projectHandler.List)
 			projects.POST("", projectHandler.Create)
+			projects.DELETE("/:id", projectHandler.Delete)
+			projects.PATCH("/:id/promote", projectHandler.Promote)
 			projects.GET("/:id/sources", projectHandler.ListSources)
 			projects.POST("/:id/sources", projectHandler.CreateSource)
 			projects.DELETE("/:id/sources/:source_id", projectHandler.DeleteSource)
@@ -186,6 +191,23 @@ func main() {
 			chatGroup.POST("/stream", reverseProxy(coreURL, rateLimiter))
 		}
 	}
+
+	// Start automation scheduler
+	schedCtx, schedCancel := context.WithCancel(context.Background())
+	defer schedCancel()
+	scheduler := handlers.NewAutomationScheduler(pgPool.Pool, coreURL)
+	go scheduler.Start(schedCtx)
+
+	// Graceful shutdown: capture OS signals so the scheduler can drain
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-quit
+		log.Println("🛑 Shutdown signal received")
+		schedCancel()
+		scheduler.Stop()
+		os.Exit(0)
+	}()
 
 	// Start server
 	addr := fmt.Sprintf(":%d", cfg.Server.GatewayPort)

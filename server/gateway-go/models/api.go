@@ -163,6 +163,7 @@ type ProjectItem struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Status      string `json:"status"`
+	IsTemporary bool   `json:"is_temporary"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }

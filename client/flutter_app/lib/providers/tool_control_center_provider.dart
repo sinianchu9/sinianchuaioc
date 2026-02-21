@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_provider.dart';
 
@@ -10,6 +10,9 @@ class ToolControlCenterState {
   final List<Map<String, dynamic>> integrations;
   final Map<String, dynamic> summary;
   final List<Map<String, dynamic>> issues;
+  final String manifestPath;
+  final int registeredToolCount;
+  final int registeredIntegrationCount;
   final String search;
   final String statusFilter;
 
@@ -21,6 +24,9 @@ class ToolControlCenterState {
     this.integrations = const <Map<String, dynamic>>[],
     this.summary = const <String, dynamic>{},
     this.issues = const <Map<String, dynamic>>[],
+    this.manifestPath = '',
+    this.registeredToolCount = 0,
+    this.registeredIntegrationCount = 0,
     this.search = '',
     this.statusFilter = 'ALL',
   });
@@ -33,6 +39,9 @@ class ToolControlCenterState {
     List<Map<String, dynamic>>? integrations,
     Map<String, dynamic>? summary,
     List<Map<String, dynamic>>? issues,
+    String? manifestPath,
+    int? registeredToolCount,
+    int? registeredIntegrationCount,
     String? search,
     String? statusFilter,
   }) {
@@ -44,6 +53,10 @@ class ToolControlCenterState {
       integrations: integrations ?? this.integrations,
       summary: summary ?? this.summary,
       issues: issues ?? this.issues,
+      manifestPath: manifestPath ?? this.manifestPath,
+      registeredToolCount: registeredToolCount ?? this.registeredToolCount,
+      registeredIntegrationCount:
+          registeredIntegrationCount ?? this.registeredIntegrationCount,
       search: search ?? this.search,
       statusFilter: statusFilter ?? this.statusFilter,
     );
@@ -76,8 +89,7 @@ class ToolControlCenterState {
 }
 
 class ToolControlCenterNotifier extends StateNotifier<ToolControlCenterState> {
-  ToolControlCenterNotifier(this._ref)
-    : super(const ToolControlCenterState());
+  ToolControlCenterNotifier(this._ref) : super(const ToolControlCenterState());
 
   final Ref _ref;
 
@@ -89,15 +101,16 @@ class ToolControlCenterNotifier extends StateNotifier<ToolControlCenterState> {
       final integrationsResp = await api.getAdminIntegrations();
       final statusResp = await api.getAdminStatusSummary();
 
-      if (!toolsResp.isSuccess || !integrationsResp.isSuccess || !statusResp.isSuccess) {
+      if (!toolsResp.isSuccess ||
+          !integrationsResp.isSuccess ||
+          !statusResp.isSuccess) {
         state = state.copyWith(
           loading: false,
-          error:
-              toolsResp.msg.isNotEmpty
-                  ? toolsResp.msg
-                  : integrationsResp.msg.isNotEmpty
-                  ? integrationsResp.msg
-                  : statusResp.msg,
+          error: toolsResp.msg.isNotEmpty
+              ? toolsResp.msg
+              : integrationsResp.msg.isNotEmpty
+              ? integrationsResp.msg
+              : statusResp.msg,
         );
         return;
       }
@@ -112,13 +125,21 @@ class ToolControlCenterNotifier extends StateNotifier<ToolControlCenterState> {
         integrations: _toMapList(integrationsData['integrations']),
         summary: _toMap(statusData['summary']),
         issues: _toMapList(statusData['issues']),
+        manifestPath: (toolsData['manifest_path'] ?? '').toString(),
+        registeredToolCount: _toInt(toolsData['registered_tool_count']),
+        registeredIntegrationCount: _toInt(
+          toolsData['registered_integration_count'],
+        ),
       );
     } catch (e) {
       state = state.copyWith(loading: false, error: '加载失败: $e');
     }
   }
 
-  Future<void> toggleTool({required String toolId, required bool enabled}) async {
+  Future<void> toggleTool({
+    required String toolId,
+    required bool enabled,
+  }) async {
     state = state.copyWith(saving: true, error: null);
     try {
       final api = _ref.read(apiServiceProvider);
@@ -191,6 +212,11 @@ class ToolControlCenterNotifier extends StateNotifier<ToolControlCenterState> {
   static List<Map<String, dynamic>> _toMapList(dynamic v) {
     if (v is! List) return const <Map<String, dynamic>>[];
     return v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  static int _toInt(dynamic v) {
+    if (v is int) return v;
+    return int.tryParse(v?.toString() ?? '') ?? 0;
   }
 }
 

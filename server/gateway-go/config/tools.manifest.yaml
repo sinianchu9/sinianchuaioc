@@ -105,6 +105,116 @@
         - tts.api
       any_of_integrations: []
 
+  - id: openclaw.template.apply
+    name: Template Apply
+    category: Generate
+    description: Apply predefined template with variables to produce structured content.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.output.validate
+    name: Output Validate
+    category: Generate
+    description: Validate generated output against schema or policy rules.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.policy.check
+    name: Policy Check
+    category: Decide
+    description: Evaluate action against governance and safety policies.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.schedule.create
+    name: Schedule Create
+    category: Automate
+    description: Create scheduled execution rules for automation tasks.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.trigger.watch
+    name: Trigger Watch
+    category: Automate
+    description: Register event/condition watchers for automatic triggering.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.review.request
+    name: Review Request
+    category: HumanLoop
+    description: Create human review task for approval or rejection workflow.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.execution.pause
+    name: Execution Pause
+    category: HumanLoop
+    description: Pause or resume running execution by identifier.
+    default_enabled: true
+    risk_level: medium
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.audit.log
+    name: Audit Log
+    category: Governance
+    description: Persist immutable audit records for tool execution and outputs.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.quota.check
+    name: Quota Check
+    category: Governance
+    description: Check quota and cost guardrails before execution.
+    default_enabled: true
+    risk_level: low
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
+  - id: openclaw.secret.resolve
+    name: Secret Resolve
+    category: Governance
+    description: Resolve runtime secrets from secure storage for execution.
+    default_enabled: true
+    risk_level: high
+    dependencies:
+      binaries: []
+      all_of_integrations: []
+      any_of_integrations: []
+
 integrations:
   - id: llm.openai
     type: llm
@@ -113,6 +223,13 @@ integrations:
     description: LLM provider integration.
     required_fields:
       - OPENAI_API_KEY
+    field_specs:
+      - name: OPENAI_API_KEY
+        label: OpenAI API Key
+        description: OpenAI 平台访问密钥，用于模型调用与鉴权。
+        acquire_hint: 登录 OpenAI 平台，在 API Keys 页面创建并复制密钥。
+        example: sk-...
+        sensitive: true
     optional_fields: []
     check_type: llm_openai
     default_enabled: true
@@ -125,6 +242,13 @@ integrations:
     description: Web search connector.
     required_fields:
       - BRAVE_API_KEY
+    field_specs:
+      - name: BRAVE_API_KEY
+        label: Brave Search Key
+        description: Brave 搜索 API 密钥，用于联网检索。
+        acquire_hint: 在 Brave Search API 控制台开通订阅后生成 Token。
+        example: BSA...
+        sensitive: true
     optional_fields: []
     check_type: web_search_brave
     default_enabled: true
@@ -138,6 +262,19 @@ integrations:
     required_fields:
       - TASK_API_BASE_URL
       - TASK_API_TOKEN
+    field_specs:
+      - name: TASK_API_BASE_URL
+        label: 任务系统地址
+        description: 外部任务系统 API 基础地址。
+        acquire_hint: 由你的任务系统管理员提供，通常是 https://xxx/api。
+        example: https://tasks.example.com/api
+        sensitive: false
+      - name: TASK_API_TOKEN
+        label: 任务系统令牌
+        description: 调用任务系统 API 的访问令牌。
+        acquire_hint: 在任务系统后台创建 API Token 或由管理员发放。
+        example: tk_...
+        sensitive: true
     optional_fields: []
     check_type: task_api
     default_enabled: true
@@ -150,8 +287,27 @@ integrations:
     description: OCR service endpoint and token configuration.
     required_fields:
       - OCR_API_BASE_URL
-      - OCR_API_TOKEN
+    field_specs:
+      - name: OCR_API_BASE_URL
+        label: OCR 服务地址
+        description: 图片识别服务 API 地址。
+        acquire_hint: 使用自建 OCR 服务地址，或第三方 OCR 平台提供的网关地址。
+        example: https://ocr.example.com
+        sensitive: false
+      - name: OCR_API_TOKEN
+        label: OCR 鉴权令牌
+        description: OCR 服务访问令牌。
+        acquire_hint: 在 OCR 平台控制台创建 API Key/Token。
+        example: ocr_...
+        sensitive: true
+      - name: OCR_MODEL
+        label: OCR 模型
+        description: 可选模型名称，不填时使用服务端默认模型。
+        acquire_hint: 在 OCR 服务文档中查看可用模型 ID。
+        example: paddleocr-v3
+        sensitive: false
     optional_fields:
+      - OCR_API_TOKEN
       - OCR_MODEL
     check_type: ocr_api
     default_enabled: true
@@ -165,6 +321,25 @@ integrations:
     required_fields:
       - ASR_API_BASE_URL
       - ASR_API_TOKEN
+    field_specs:
+      - name: ASR_API_BASE_URL
+        label: ASR 服务地址
+        description: 语音转文字服务 API 地址。
+        acquire_hint: 由 ASR 服务商控制台或自建服务部署地址提供。
+        example: https://asr.example.com
+        sensitive: false
+      - name: ASR_API_TOKEN
+        label: ASR 鉴权令牌
+        description: ASR 服务访问令牌。
+        acquire_hint: 在 ASR 服务商平台创建 API Key/Token。
+        example: asr_...
+        sensitive: true
+      - name: ASR_MODEL
+        label: ASR 模型
+        description: 可选模型名称，不填时使用默认模型。
+        acquire_hint: 从 ASR 服务文档查询模型 ID。
+        example: whisper-large-v3
+        sensitive: false
     optional_fields:
       - ASR_MODEL
     check_type: asr_api
@@ -178,8 +353,27 @@ integrations:
     description: Text-to-speech service endpoint and token configuration.
     required_fields:
       - TTS_API_BASE_URL
-      - TTS_API_TOKEN
+    field_specs:
+      - name: TTS_API_BASE_URL
+        label: TTS 服务地址
+        description: 文字转语音服务 API 地址。
+        acquire_hint: 由 TTS 服务商或自建服务提供。
+        example: https://tts.example.com
+        sensitive: false
+      - name: TTS_API_TOKEN
+        label: TTS 鉴权令牌
+        description: TTS 服务访问令牌。
+        acquire_hint: 在 TTS 平台控制台创建 API Key/Token。
+        example: tts_...
+        sensitive: true
+      - name: TTS_VOICE
+        label: 默认音色
+        description: 可选默认音色 ID，不填使用服务默认音色。
+        acquire_hint: 在 TTS 平台音色列表中查找 voice id。
+        example: zh-CN-XiaoxiaoNeural
+        sensitive: false
     optional_fields:
+      - TTS_API_TOKEN
       - TTS_VOICE
     check_type: tts_api
     default_enabled: true

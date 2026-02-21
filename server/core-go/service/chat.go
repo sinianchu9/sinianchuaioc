@@ -326,6 +326,7 @@ func (s *ChatService) StreamChatViaEngine(ctx context.Context, req *ChatRequest,
 		TenantID:       tenantID,
 		UserID:         userID,
 		ClientID:       req.ClientID,
+		IntegrationEnv: s.loadIntegrationRuntimeEnv(ctx, tenantID),
 	}
 
 	log.Printf("[%s] Engine=%s model=%s mode=%s", traceID, eng.Name(), modelName, mode)
@@ -374,9 +375,35 @@ func (s *ChatService) StreamChatViaEngine(ctx context.Context, req *ChatRequest,
 					sseChan <- formatSSE("ui_component", string(uiJSON))
 				}
 			case engine.EventToolCall:
+				displayName := event.DisplayName
+				if displayName == "" {
+					switch event.Tool {
+					case "execute_command":
+						displayName = "执行终端命令"
+					case "request_data_chart":
+						displayName = "绘制数据图表"
+					case "artifact_render":
+						displayName = "生成文档产物"
+					case "artifact_bundle_zip":
+						displayName = "打包资源文件"
+					case "source_lookup":
+						displayName = "检索资料库"
+					case "request_calendar":
+						displayName = "操作日程表"
+					case "ocr_extract":
+						displayName = "识别图像文字 (OCR)"
+					case "asr_transcribe":
+						displayName = "转录音频 (ASR)"
+					case "tts_synthesize":
+						displayName = "合成语音 (TTS)"
+					default:
+						displayName = "调用技能: " + event.Tool
+					}
+				}
 				payload := map[string]any{
-					"tool": event.Tool,
-					"args": event.Args,
+					"tool":         event.Tool,
+					"display_name": displayName,
+					"args":         event.Args,
 				}
 				evJSON, _ := json.Marshal(payload)
 				sseChan <- formatSSE("tool_call", string(evJSON))

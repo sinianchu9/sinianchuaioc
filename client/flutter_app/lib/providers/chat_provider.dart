@@ -52,12 +52,14 @@ class ChatMessage {
 
 class ToolTraceEvent {
   final String tool;
+  final String displayName;
   final String phase; // start | result
   final String details;
   final DateTime timestamp;
 
   ToolTraceEvent({
     required this.tool,
+    this.displayName = '',
     required this.phase,
     required this.details,
     DateTime? timestamp,
@@ -131,11 +133,15 @@ class ProjectItem {
   final String id;
   final String name;
   final String description;
+  final bool isTemporary;
+  final String updatedAt;
 
   const ProjectItem({
     required this.id,
     required this.name,
     required this.description,
+    this.isTemporary = false,
+    this.updatedAt = '',
   });
 
   factory ProjectItem.fromJson(Map<String, dynamic> json) {
@@ -143,6 +149,8 @@ class ProjectItem {
       id: json['project_id'] ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
+      isTemporary: json['is_temporary'] ?? false,
+      updatedAt: json['updated_at'] ?? '',
     );
   }
 }
@@ -348,6 +356,7 @@ class ChatState {
   ChatState copyWith({
     List<ChatSession>? sessions,
     String? activeSessionId,
+    bool clearActiveSessionId = false,
     String? modelMode,
     List<SkillItem>? skills,
     List<ProjectItem>? projects,
@@ -365,7 +374,9 @@ class ChatState {
   }) {
     return ChatState(
       sessions: sessions ?? this.sessions,
-      activeSessionId: activeSessionId ?? this.activeSessionId,
+      activeSessionId: clearActiveSessionId
+          ? null
+          : (activeSessionId ?? this.activeSessionId),
       modelMode: modelMode ?? this.modelMode,
       skills: skills ?? this.skills,
       projects: projects ?? this.projects,
@@ -412,11 +423,29 @@ class ChatNotifier extends StateNotifier<ChatState> {
         final projects = (resp.data as List)
             .map((e) => ProjectItem.fromJson(Map<String, dynamic>.from(e)))
             .toList();
-        state = state.copyWith(projects: projects);
-        if (state.selectedProjectId.isEmpty && projects.isNotEmpty) {
-          state = state.copyWith(selectedProjectId: projects.first.id);
-          await loadProjectSources(projects.first.id);
+        final currentProjectId = state.selectedProjectId;
+        String nextProjectId = currentProjectId;
+
+        final stillExists =
+            nextProjectId.isNotEmpty &&
+            projects.any((p) => p.id == nextProjectId);
+        if (!stillExists) {
+          nextProjectId = projects.isNotEmpty ? projects.first.id : '';
         }
+
+        final projectChanged = nextProjectId != currentProjectId;
+        state = state.copyWith(
+          projects: projects,
+          selectedProjectId: nextProjectId,
+          projectSources: nextProjectId.isEmpty
+              ? const []
+              : state.projectSources,
+          sessions: projectChanged ? const [] : state.sessions,
+          clearActiveSessionId: projectChanged,
+        );
+
+        await loadProjectSources(nextProjectId);
+        await loadSessions();
       }
     } catch (e) {
       state = state.copyWith(error: 'Failed to load projects: $e');
@@ -429,14 +458,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final resp = await _api.getSources();
       if (resp.isSuccess && resp.data is List) {
         final items = (resp.data as List)
-            .map((e) => LibrarySourceItem.fromJson(Map<String, dynamic>.from(e)))
+            .map(
+              (e) => LibrarySourceItem.fromJson(Map<String, dynamic>.from(e)),
+            )
             .toList();
         state = state.copyWith(librarySources: items, sourcesLoading: false);
       } else {
         state = state.copyWith(sourcesLoading: false, error: resp.msg);
       }
     } catch (e) {
-      state = state.copyWith(error: 'Failed to load sources: $e', sourcesLoading: false);
+      state = state.copyWith(
+        error: 'Failed to load sources: $e',
+        sourcesLoading: false,
+      );
     }
   }
 
@@ -512,11 +546,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> createProject({
     required String name,
     String description = '',
+    bool isTemporary = false,
   }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return;
     try {
-      final resp = await _api.createProject(name: trimmed, description: description);
+      final resp = await _api.createProject(
+        name: trimmed,
+        description: description,
+        isTemporary: isTemporary,
+      );
       if (resp.isSuccess) {
         await loadProjects();
         final id = (resp.data?['project_id'] ?? '').toString();
@@ -542,7 +581,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final resp = await _api.getProjectSources(pid);
       if (resp.isSuccess && resp.data is List) {
         final items = (resp.data as List)
-            .map((e) => ProjectSourceItem.fromJson(Map<String, dynamic>.from(e)))
+            .map(
+              (e) => ProjectSourceItem.fromJson(Map<String, dynamic>.from(e)),
+            )
             .toList();
         state = state.copyWith(projectSources: items, sourcesLoading: false);
       } else {
@@ -556,6 +597,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
+  Future<void> deleteProject(String id) async {
+    try {
+      final resp = await _api.deleteProject(id);
+      if (resp.isSuccess) {
+        if (state.selectedProjectId == id) {
+          state = state.copyWith(
+            selectedProjectId: '',
+            projectSources: const [],
+            sessions: const [],
+            clearActiveSessionId: true,
+          );
+        }
+        await loadProjects();
+      } else {
+        state = state.copyWith(error: resp.msg);
+      }
+    } catch (e) {
+      state = state.copyWith(error: 'Failed to delete project: $e');
+    }
+  }
+
   Future<void> createProjectSource({
     required String sourceType,
     required String name,
@@ -566,9 +628,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
     Map<String, dynamic> metadata = const {},
   }) async {
     if (state.selectedProjectId.isEmpty) {
-      state = state.copyWith(error: 'Please select a project first');
-      return;
+      // Auto-create temporary project for Progressive Enhancement flow
+      try {
+        final resp = await _api.createProject(
+          name: 'Draft: ${DateTime.now().toLocal().toString().split('.')[0]}',
+          description: 'Auto-created temporary workspace',
+          isTemporary: true,
+        );
+        if (resp.isSuccess) {
+          final newId = resp.data?['project_id']?.toString() ?? '';
+          if (newId.isNotEmpty) {
+            await selectProject(newId);
+          } else {
+            state = state.copyWith(error: 'Failed to extract new project ID');
+            return;
+          }
+        } else {
+          state = state.copyWith(error: resp.msg);
+          return;
+        }
+      } catch (e) {
+        state = state.copyWith(error: 'Failed to auto-create workspace: $e');
+        return;
+      }
     }
+
     try {
       final resp = await _api.createProjectSource(
         projectId: state.selectedProjectId,
@@ -595,7 +679,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       state = state.copyWith(error: 'Please select a project first');
       return;
     }
-    final source = state.librarySources.where((s) => s.sourceId == sourceId).toList();
+    final source = state.librarySources
+        .where((s) => s.sourceId == sourceId)
+        .toList();
     if (source.isEmpty) {
       state = state.copyWith(error: 'Source not found in library');
       return;
@@ -766,6 +852,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(selectedSkillIds: selected);
   }
 
+  void addSkill(String skillId) {
+    if (skillId.isEmpty || state.selectedSkillIds.contains(skillId)) return;
+    state = state.copyWith(
+      selectedSkillIds: [...state.selectedSkillIds, skillId],
+    );
+  }
+
+  void removeSkill(String skillId) {
+    if (skillId.isEmpty) return;
+    state = state.copyWith(
+      selectedSkillIds: state.selectedSkillIds
+          .where((id) => id != skillId)
+          .toList(),
+    );
+  }
+
   void selectScenario({
     required String roleId,
     required String taskId,
@@ -778,7 +880,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final genericIDs = state.genericUseCaseSkills.map((g) => g.id).toSet();
 
     final kept = state.selectedSkillIds
-        .where((id) => genericIDs.contains(id) || !knownTaskSkillIDs.contains(id))
+        .where(
+          (id) => genericIDs.contains(id) || !knownTaskSkillIDs.contains(id),
+        )
         .toSet();
     kept.addAll(defaultSkills);
 
@@ -790,8 +894,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   Future<void> selectProject(String projectId) async {
-    state = state.copyWith(selectedProjectId: projectId);
-    await loadProjectSources(projectId);
+    if (state.selectedProjectId != projectId) {
+      // Switching to a different project
+      state = state.copyWith(
+        selectedProjectId: projectId,
+        clearActiveSessionId: true,
+        sessions: const [],
+      );
+
+      if (projectId.isNotEmpty) {
+        await loadProjectSources(projectId);
+      } else {
+        await loadProjectSources('');
+      }
+
+      // Load sessions specific to the newly selected project (or lack thereof)
+      await loadSessions();
+    } else {
+      // Just reloading the same project
+      state = state.copyWith(selectedProjectId: projectId);
+      await loadProjectSources(projectId);
+    }
   }
 
   void stopGeneration() {
@@ -805,7 +928,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // Load sessions from server
   Future<void> loadSessions() async {
     try {
-      final resp = await _api.getSessions();
+      final pid = state.selectedProjectId;
+      final resp = await _api.getSessions(projectId: pid);
       if (resp.isSuccess && resp.data is List) {
         final sessions = (resp.data as List).map((s) {
           return ChatSession(
@@ -814,9 +938,23 @@ class ChatNotifier extends StateNotifier<ChatState> {
             modelMode: s['model_mode'] ?? 'economy',
           );
         }).toList();
-        state = state.copyWith(sessions: sessions);
-        if (state.activeSessionId == null && sessions.isNotEmpty) {
-          selectSession(sessions.first.id);
+
+        final currentActive = state.activeSessionId;
+        String? nextActive = currentActive;
+        final activeStillExists =
+            nextActive != null && sessions.any((s) => s.id == nextActive);
+        if (!activeStillExists) {
+          nextActive = sessions.isNotEmpty ? sessions.first.id : null;
+        }
+
+        state = state.copyWith(
+          sessions: sessions,
+          activeSessionId: nextActive,
+          clearActiveSessionId: nextActive == null,
+        );
+
+        if (nextActive != null) {
+          await selectSession(nextActive);
         }
       }
     } catch (e) {
@@ -827,9 +965,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
   // Create new session
   Future<void> createSession() async {
     try {
+      final pid = state.selectedProjectId;
       final resp = await _api.createSession(
         title: 'New Chat',
         mode: state.modelMode,
+        projectId: pid,
       );
       if (resp.isSuccess) {
         final id = resp.data['session_id'] as String;
@@ -991,15 +1131,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
             }
           } else if (event.type == 'tool_call') {
             try {
-              final data = jsonDecode(event.data);
-              toolEvents = [
-                ...toolEvents,
-                ToolTraceEvent(
-                  tool: '${data['tool'] ?? 'tool'}',
-                  phase: 'start',
-                  details: jsonEncode(data['args'] ?? {}),
-                ),
-              ];
+              final payload = jsonDecode(event.data);
+              final tool = payload['tool'] as String? ?? 'unknown';
+              final displayName = payload['display_name'] as String? ?? '';
+              final args = payload['args'] as Map<String, dynamic>? ?? {};
+
+              final argsStr = args.entries
+                  .map((e) => '${e.key}: ${e.value}')
+                  .join(', ');
+
+              final ev = ToolTraceEvent(
+                tool: tool,
+                displayName: displayName,
+                phase: 'start',
+                details: argsStr.isEmpty ? '启动工具' : argsStr,
+              );
+              toolEvents = [...toolEvents, ev];
               _updateCurrentAssistantMessage(
                 session.id,
                 content: fullResponse,

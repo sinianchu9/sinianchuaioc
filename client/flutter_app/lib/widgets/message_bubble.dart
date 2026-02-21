@@ -404,44 +404,122 @@ class MessageBubble extends StatelessWidget {
     final l10n = context.l10n;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: AIOCTheme.background.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(10),
+        color: AIOCTheme.background.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AIOCTheme.surfaceLight.withOpacity(0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.t('executionTimeline'),
-            style: const TextStyle(
-              color: AIOCTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              const Icon(
+                Icons.account_tree_rounded,
+                size: 14,
+                color: AIOCTheme.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                l10n.t('executionTimeline'),
+                style: const TextStyle(
+                  color: AIOCTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          ...events.map((e) {
+          const SizedBox(height: 12),
+          ...events.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final e = entry.value;
             final isStart = e.phase == 'start';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+            final isError = e.phase == 'error';
+            final isLast = idx == events.length - 1;
+
+            Color statusColor;
+            IconData statusIcon;
+            if (isError) {
+              statusColor = AIOCTheme.error;
+              statusIcon = Icons.error_rounded;
+            } else if (isStart) {
+              statusColor = AIOCTheme.warning;
+              statusIcon = Icons.pending_actions_rounded;
+            } else {
+              statusColor = AIOCTheme.success;
+              statusIcon = Icons.check_circle_rounded;
+            }
+
+            return IntrinsicHeight(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    isStart ? Icons.play_circle_outline : Icons.check_circle,
-                    size: 14,
-                    color: isStart ? AIOCTheme.warning : AIOCTheme.success,
+                  Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(statusIcon, size: 14, color: statusColor),
+                      ),
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            width: 2,
+                            color: AIOCTheme.surfaceLight,
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      '${e.tool} · ${isStart ? 'start' : 'result'}\n${e.details}',
-                      style: const TextStyle(
-                        color: AIOCTheme.textSecondary,
-                        fontSize: 11,
-                        height: 1.3,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e.displayName.isNotEmpty ? e.displayName : e.tool,
+                            style: TextStyle(
+                              color: AIOCTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: isStart
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                          if (e.details.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AIOCTheme.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: AIOCTheme.surfaceLight.withOpacity(
+                                    0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                e.details,
+                                style: const TextStyle(
+                                  color: AIOCTheme.textSecondary,
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                                maxLines: isStart ? 2 : 4,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),

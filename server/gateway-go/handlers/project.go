@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS projects (
 	name          VARCHAR(200) NOT NULL,
 	description   TEXT NOT NULL DEFAULT '',
 	status        VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived', 'deleted')),
+	is_temporary  BOOLEAN NOT NULL DEFAULT false,
 	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )`)
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS project_sources (
 type createProjectRequest struct {
 	Name        string `json:"name" binding:"required,min=1,max=200"`
 	Description string `json:"description"`
+	IsTemporary bool   `json:"is_temporary"`
 }
 
 type createProjectSourceRequest struct {
@@ -70,7 +72,7 @@ func (h *ProjectHandler) List(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	rows, err := h.db.Query(context.Background(),
-		`SELECT project_id, name, description, status, created_at, updated_at
+		`SELECT project_id, name, description, status, is_temporary, created_at, updated_at
 		   FROM projects
 		  WHERE user_id = $1 AND status <> 'deleted'
 		  ORDER BY updated_at DESC`,
@@ -90,7 +92,7 @@ func (h *ProjectHandler) List(c *gin.Context) {
 			createdAt time.Time
 			updatedAt time.Time
 		)
-		if err := rows.Scan(&pid, &item.Name, &item.Description, &item.Status, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&pid, &item.Name, &item.Description, &item.Status, &item.IsTemporary, &createdAt, &updatedAt); err != nil {
 			continue
 		}
 		item.ProjectID = pid.String()
@@ -115,9 +117,9 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 
 	projectID := uuid.New()
 	_, err := h.db.Exec(context.Background(),
-		`INSERT INTO projects (project_id, tenant_id, user_id, name, description)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		projectID, tenantID, userID, req.Name, req.Description,
+		`INSERT INTO projects (project_id, tenant_id, user_id, name, description, is_temporary)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		projectID, tenantID, userID, req.Name, req.Description, req.IsTemporary,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to create project", TraceID: traceID})
@@ -128,9 +130,127 @@ func (h *ProjectHandler) Create(c *gin.Context) {
 		Code: 1,
 		Msg:  "project created",
 		Data: map[string]any{
-			"project_id":  projectID.String(),
-			"name":        req.Name,
-			"description": req.Description,
+			"project_id":   projectID.String(),
+			"name":         req.Name,
+			"description":  req.Description,
+			"is_temporary": req.IsTemporary,
+		},
+		TraceID: traceID,
+	})
+}
+
+type promoteProjectRequest struct {
+	Name        string `json:"name" binding:"required,min=1,max=200"`
+	Description string `json:"description"`
+}
+
+func (h *ProjectHandler) Promote(c *gin.Context) {
+	traceID := c.GetString("trace_id")
+	userID := c.GetString("user_id")
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Code: 0, Msg: "invalid project id", TraceID: traceID})
+		return
+	}
+
+	var req promoteProjectRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Code: 0, Msg: "invalid request: " + err.Error(), TraceID: traceID})
+		return
+	}
+
+	tag, err := h.db.Exec(context.Background(),
+		`UPDATE projects SET 
+		 	is_temporary = false, 
+			name = $1, 
+			description = $2,
+			updated_at = NOW()
+		 WHERE project_id = $3 AND user_id = $4 AND is_temporary = true AND status = 'active'`,
+		req.Name, req.Description, projectID, userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to promote project", TraceID: traceID})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, models.APIResponse{Code: 0, Msg: "temporary project not found or already promoted", TraceID: traceID})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Code: 1,
+		Msg:  "project promoted locally",
+		Data: map[string]any{
+			"project_id": projectID.String(),
+			"name":       req.Name,
+		},
+		TraceID: traceID,
+	})
+}
+
+// Delete marks a project as deleted (soft delete).
+func (h *ProjectHandler) Delete(c *gin.Context) {
+	traceID := c.GetString("trace_id")
+	userID := c.GetString("user_id")
+
+	projectID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{Code: 0, Msg: "invalid project id", TraceID: traceID})
+		return
+	}
+
+	ctx := context.Background()
+	tx, err := h.db.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to delete project", TraceID: traceID})
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE projects
+		    SET status = 'deleted', updated_at = NOW()
+		  WHERE project_id = $1 AND user_id = $2 AND status <> 'deleted'`,
+		projectID, userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to delete project", TraceID: traceID})
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, models.APIResponse{Code: 0, Msg: "project not found", TraceID: traceID})
+		return
+	}
+
+	sessionsTag, err := tx.Exec(ctx,
+		`DELETE FROM sessions WHERE project_id = $1 AND user_id = $2`,
+		projectID, userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to delete project sessions", TraceID: traceID})
+		return
+	}
+
+	_, err = tx.Exec(ctx,
+		`DELETE FROM project_sources WHERE project_id = $1 AND user_id = $2`,
+		projectID, userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to delete project sources", TraceID: traceID})
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{Code: 0, Msg: "failed to finalize project deletion", TraceID: traceID})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Code: 1,
+		Msg:  "project deleted",
+		Data: map[string]any{
+			"project_id":       projectID.String(),
+			"deleted_sessions": sessionsTag.RowsAffected(),
 		},
 		TraceID: traceID,
 	})

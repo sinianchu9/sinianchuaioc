@@ -1,13 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../core/theme.dart';
 import '../providers/chat_provider.dart';
 
 class ProjectsScreen extends ConsumerStatefulWidget {
-  final VoidCallback onOpenChat;
+  final VoidCallback onSelectProject;
 
-  const ProjectsScreen({super.key, required this.onOpenChat});
+  const ProjectsScreen({super.key, required this.onSelectProject});
 
   @override
   ConsumerState<ProjectsScreen> createState() => _ProjectsScreenState();
@@ -15,42 +14,31 @@ class ProjectsScreen extends ConsumerStatefulWidget {
 
 class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   String _projectQuery = '';
-  String _libraryQuery = '';
-  String _selectedQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
 
-    final selectedProject = state.projects.where((p) => p.id == state.selectedProjectId).toList();
-    final selectedName = selectedProject.isEmpty ? '未选择项目' : selectedProject.first.name;
-
     final filteredProjects = state.projects.where((p) {
       final target = '${p.name} ${p.description}'.toLowerCase();
       return target.contains(_projectQuery.toLowerCase());
     }).toList();
 
-    final filteredProjectSources = state.projectSources.where((s) {
-      final target = '${s.name} ${s.sourceType} ${s.contentText} ${s.filePath} ${s.linkUrl}'.toLowerCase();
-      return target.contains(_selectedQuery.toLowerCase());
-    }).toList();
-
-    final filteredLibrary = state.librarySources.where((s) {
-      final target = '${s.name} ${s.sourceType} ${s.contentText} ${s.filePath} ${s.linkUrl}'.toLowerCase();
-      return target.contains(_libraryQuery.toLowerCase());
-    }).toList();
-
     return Container(
       color: AIOCTheme.background,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AIOCTheme.surface,
               border: Border(
-                bottom: BorderSide(color: AIOCTheme.surfaceLight.withOpacity(0.5)),
+                bottom: BorderSide(
+                  color: AIOCTheme.surfaceLight.withOpacity(0.5),
+                ),
               ),
             ),
             child: Row(
@@ -60,7 +48,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        '项目管理',
+                        '工作台 / 项目夹',
                         style: TextStyle(
                           color: AIOCTheme.textPrimary,
                           fontSize: 22,
@@ -68,9 +56,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        '当前项目：$selectedName。项目是资料组合，用于某次对话任务。',
-                        style: const TextStyle(color: AIOCTheme.textSecondary, fontSize: 13),
+                      const Text(
+                        '项目是您的主要工作场所，您可以在此挂载关联文件并下发任务指令。',
+                        style: TextStyle(
+                          color: AIOCTheme.textSecondary,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -78,233 +69,401 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 OutlinedButton.icon(
                   onPressed: () async {
                     await notifier.loadProjects();
-                    await notifier.loadSources();
                   },
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('刷新'),
+                  label: const Text('刷新列表'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  onPressed: state.selectedProjectId.isEmpty
-                      ? null
-                      : () {
-                          widget.onOpenChat();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已打开对话，后续消息将使用当前项目资料源')),
-                          );
-                        },
-                  icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                  label: const Text('打开项目对话'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AIOCTheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                  ),
+                  onPressed: () => _showCreateProjectDialog(context, notifier),
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text(
+                    '新建项目',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 320,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            '项目列表',
-                            style: TextStyle(
-                              color: AIOCTheme.textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => _showCreateProjectDialog(context, notifier),
-                            icon: const Icon(Icons.add),
-                            tooltip: '新建项目',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search),
-                          hintText: '搜索项目',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        onChanged: (v) => setState(() => _projectQuery = v),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: filteredProjects.length,
-                          itemBuilder: (context, index) {
-                            final p = filteredProjects[index];
-                            final active = p.id == state.selectedProjectId;
-                            return Card(
-                              color: active ? AIOCTheme.primary.withOpacity(0.2) : AIOCTheme.surfaceCard,
-                              child: ListTile(
-                                title: Text(p.name),
-                                subtitle: Text(
-                                  p.description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                onTap: () => notifier.selectProject(p.id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+
+          // Toolbar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: SizedBox(
+              width: 320,
+              child: TextField(
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AIOCTheme.textSecondary,
                   ),
+                  hintText: '搜索项目名称或描述...',
+                  filled: true,
+                  fillColor: AIOCTheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AIOCTheme.surfaceLight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AIOCTheme.surfaceLight),
+                  ),
+                  isDense: true,
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
+                onChanged: (v) => setState(() => _projectQuery = v),
+              ),
+            ),
+          ),
+
+          // Grid
+          Expanded(
+            child: filteredProjects.isEmpty
+                ? Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        Icon(
+                          Icons.folder_open,
+                          size: 48,
+                          color: AIOCTheme.surfaceLight,
+                        ),
+                        const SizedBox(height: 16),
                         const Text(
-                          '项目已选资料',
-                          style: TextStyle(
-                            color: AIOCTheme.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          '没找到匹配的项目\n请调整搜索条件，或新建一个项目',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AIOCTheme.textSecondary),
                         ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search),
-                            hintText: '搜索已选资料',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onChanged: (v) => setState(() => _selectedQuery = v),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: state.selectedProjectId.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    '请先选择项目',
-                                    style: TextStyle(color: AIOCTheme.textSecondary),
-                                  ),
-                                )
-                              : (filteredProjectSources.isEmpty
-                                    ? const Center(
-                                        child: Text(
-                                          '当前项目还未组合任何资料或无匹配结果',
-                                          style: TextStyle(color: AIOCTheme.textSecondary),
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: filteredProjectSources.length,
-                                        itemBuilder: (context, index) {
-                                          final s = filteredProjectSources[index];
-                                          return ListTile(
-                                            dense: true,
-                                            leading: Icon(_iconForType(s.sourceType), color: AIOCTheme.accent),
-                                            title: Text(s.name),
-                                            subtitle: Text(s.sourceType),
-                                            trailing: IconButton(
-                                              tooltip: '移除',
-                                              icon: const Icon(Icons.remove_circle_outline, color: AIOCTheme.error),
-                                              onPressed: () async {
-                                                await notifier.removeProjectSource(s.sourceId);
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(content: Text('已移除: ${s.name}')),
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      )),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '从资料库加入到当前项目',
-                          style: TextStyle(
-                            color: AIOCTheme.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.search),
-                            hintText: '搜索资料库',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onChanged: (v) => setState(() => _libraryQuery = v),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: filteredLibrary.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    '资料库为空或无匹配结果',
-                                    style: TextStyle(color: AIOCTheme.textSecondary),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: filteredLibrary.length,
-                                  itemBuilder: (context, index) {
-                                    final s = filteredLibrary[index];
-                                    return Card(
-                                      color: AIOCTheme.surfaceCard,
-                                      child: ListTile(
-                                        leading: Icon(_iconForType(s.sourceType), color: AIOCTheme.accent),
-                                        title: Text(s.name),
-                                        subtitle: Text(s.sourceType),
-                                        trailing: OutlinedButton(
-                                          onPressed: state.selectedProjectId.isEmpty
-                                              ? null
-                                              : () async {
-                                                  await notifier.attachLibrarySourceToProject(s.sourceId);
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(content: Text('已加入项目: ${s.name}')),
-                                                    );
-                                                  }
-                                                },
-                                          child: const Text('加入项目'),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
-                        if (state.error != null)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            color: AIOCTheme.error.withOpacity(0.12),
-                            child: Text(
-                              state.error!,
-                              style: const TextStyle(color: AIOCTheme.error, fontSize: 12),
-                            ),
-                          ),
                       ],
                     ),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 380,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 1.8,
+                        ),
+                    itemCount: filteredProjects.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return _buildDraftCard(context, notifier);
+                      }
+                      final p = filteredProjects[index - 1];
+                      return _buildProjectCard(context, p, notifier);
+                    },
                   ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  static void _showCreateProjectDialog(BuildContext context, ChatNotifier notifier) {
+  Widget _buildDraftCard(BuildContext context, ChatNotifier notifier) {
+    return Card(
+      color: AIOCTheme.surfaceCard,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: AIOCTheme.accent.withOpacity(0.3), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          await notifier.selectProject('');
+          widget.onSelectProject();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AIOCTheme.accent.withOpacity(0.05),
+                AIOCTheme.primary.withOpacity(0.03),
+              ],
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AIOCTheme.accent.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome,
+                      color: AIOCTheme.accent,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '草稿记录 (Global Draft)',
+                          style: TextStyle(
+                            color: AIOCTheme.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          '不关联特定项目的随身对话历史',
+                          style: TextStyle(
+                            color: AIOCTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 14,
+                    color: AIOCTheme.textSecondary,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    '管理全部通用历史记录',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AIOCTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Spacer(),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: AIOCTheme.textSecondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectCard(
+    BuildContext context,
+    ProjectItem project,
+    ChatNotifier notifier,
+  ) {
+    return Card(
+      color: AIOCTheme.surfaceCard,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: AIOCTheme.surfaceLight),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          await notifier.selectProject(project.id);
+          widget.onSelectProject();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    project.isTemporary
+                        ? Icons.note_alt_outlined
+                        : Icons.folder,
+                    color: project.isTemporary
+                        ? AIOCTheme.warning
+                        : AIOCTheme.primary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AIOCTheme.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (project.isTemporary) ...[
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AIOCTheme.warning.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: AIOCTheme.warning.withOpacity(0.3),
+                              ),
+                            ),
+                            child: const Text(
+                              '草稿记录',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AIOCTheme.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        _confirmDeleteProject(context, project, notifier),
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AIOCTheme.textSecondary,
+                      size: 20,
+                    ),
+                    tooltip: '删除项目',
+                  ),
+                ],
+              ),
+              const Spacer(),
+              if (project.description.isNotEmpty)
+                Text(
+                  project.description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AIOCTheme.textSecondary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                )
+              else
+                const Text(
+                  '添加描述...',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AIOCTheme.textSecondary,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: AIOCTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatTime(project.updatedAt),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AIOCTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return raw.split('T').first;
+    }
+  }
+
+  static void _confirmDeleteProject(
+    BuildContext context,
+    ProjectItem project,
+    ChatNotifier notifier,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AIOCTheme.surfaceCard,
+          title: const Text('删除确认'),
+          content: Text(
+            '您确定要删除项目「${project.name}」吗？关联的文件记录也将一并移除（原资产库文件不受影响）。此操作不可恢复。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text(
+                '取消',
+                style: TextStyle(color: AIOCTheme.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AIOCTheme.error,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                await notifier.deleteProject(project.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('已删除项目: ${project.name}')),
+                  );
+                }
+              },
+              child: const Text('确认删除'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static void _showCreateProjectDialog(
+    BuildContext context,
+    ChatNotifier notifier,
+  ) {
     final nameController = TextEditingController();
     final descController = TextEditingController();
     showDialog<void>(
@@ -312,7 +471,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: AIOCTheme.surfaceCard,
-          title: const Text('新建项目'),
+          title: const Text('新建工作项目'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -322,51 +481,47 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   labelText: '项目名称',
                   border: OutlineInputBorder(),
                 ),
+                autofocus: true,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               TextField(
                 controller: descController,
                 decoration: const InputDecoration(
                   labelText: '项目说明（可选）',
                   border: OutlineInputBorder(),
                 ),
+                maxLines: 2,
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text(
+                '取消',
+                style: TextStyle(color: AIOCTheme.textSecondary),
+              ),
+            ),
             ElevatedButton(
               onPressed: () async {
                 final name = nameController.text.trim();
                 if (name.isEmpty) return;
-                await notifier.createProject(name: name, description: descController.text.trim());
+                await notifier.createProject(
+                  name: name,
+                  description: descController.text.trim(),
+                );
                 if (context.mounted) {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('项目已创建: $name')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('项目已创建: $name')));
                 }
               },
-              child: const Text('创建'),
+              child: const Text('创建并配置'),
             ),
           ],
         );
       },
     );
-  }
-
-  static IconData _iconForType(String type) {
-    switch (type) {
-      case 'file':
-        return Icons.insert_drive_file_outlined;
-      case 'image':
-        return Icons.image_outlined;
-      case 'audio':
-        return Icons.graphic_eq_outlined;
-      case 'link':
-        return Icons.link_outlined;
-      default:
-        return Icons.notes_outlined;
-    }
   }
 }

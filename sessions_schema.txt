@@ -1,0 +1,19 @@
+                                    Table "public.sessions"
+   Column    |           Type           | Collation | Nullable |            Default            
+-------------+--------------------------+-----------+----------+-------------------------------
+ session_id  | uuid                     |           | not null | gen_random_uuid()
+ user_id     | uuid                     |           | not null | 
+ title       | character varying(500)   |           | not null | 'New Chat'::character varying
+ model_mode  | character varying(20)    |           | not null | 'economy'::character varying
+ messages    | jsonb                    |           | not null | '[]'::jsonb
+ token_count | integer                  |           | not null | 0
+ created_at  | timestamp with time zone |           | not null | now()
+ updated_at  | timestamp with time zone |           | not null | now()
+Indexes:
+    "sessions_pkey" PRIMARY KEY, btree (session_id)
+    "idx_sessions_user" btree (user_id)
+Check constraints:
+    "sessions_model_mode_check" CHECK (model_mode::text = ANY (ARRAY['economy'::character varying, 'precision'::character varying, 'privacy'::character varying]::text[]))
+Foreign-key constraints:
+    "sessions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+
